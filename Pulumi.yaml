@@ -1,0 +1,7 @@
+name: ks-pulumi
+runtime: python
+config:
+  aws:profile:
+    value: 'TODO: var.aws-config.profile'
+  aws:region:
+    value: 'TODO: var.aws-config.region'

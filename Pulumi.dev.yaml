@@ -1,0 +1,58 @@
+config:
+  #aws:profile: 'cloudbees-ps'
+  aws:region: 'us-east-1'
+  ks-pulumi:asg_schedule:
+    value:
+      timezone: America/New_York
+      weekday_config_down:
+        cron_schedule: 15 20 * * 1-5
+        desired: "0"
+        max: "-1"
+        min: "0"
+      weekday_config_up:
+        cron_schedule: 0 7 * * 1-5
+        desired: "2"
+        max: "-1"
+        min: "1"
+      weekend_config:
+        cron_schedule: 15 17 * * 5-7
+        desired: "0"
+        max: "-1"
+        min: "0"
+
+  ks-pulumi:common_tags:
+    application: pulumi-eks
+    environment: development
+    expiry: 2027-2-30
+    purpose: testing pulumi infra mgmt
+    user: kshenk
+  ks-pulumi:create_asg_schedule: "true"
+  ks-pulumi:create_efs_filesystem: "true"
+  ks-pulumi:create_eks_cluster: "true"
+  ks-pulumi:create_rds_instance: "false"
+  ks-pulumi:db_mysql:
+    value:
+      allocated_storage: "75"
+      database_name: cdro_00
+      database_user: cdro_user
+      db_port: "3306"
+      engine: mysql
+      engine_version: 8.0.35
+      instance_class: db.m7g.xlarge
+  ks-pulumi:domain_name:
+    value: pulumi-eks.local
+  ks-pulumi:eks_instance_min_mem: "4096"
+  ks-pulumi:eks_instance_min_vcpu: "2"
+  ks-pulumi:eks_max_nodes_per_nodegroup: "10"
+  ks-pulumi:eks_node_group_instance_types:
+    - m6a.large
+    - t3.xlarge
+    - t3.large
+  ks-pulumi:eks_nodes_per_nodegroup: "3"
+  ks-pulumi:kubernetes_version: "1.35"
+  ks-pulumi:myip: 71.60.6.47/32
+  ks-pulumi:private_subnet_count: "2"
+  ks-pulumi:public_subnet_count: "2"
+  ks-pulumi:resource_prefix: ks-pulumi
+  ks-pulumi:subnet_cidr_prefix: "10.0"
+  ks-pulumi:vpc_cidr_block: 10.0.0.0/20
