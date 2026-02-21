@@ -28,7 +28,7 @@ kubernetes_version = config.get("kubernetes_version") or \
 eks_node_group_instance_types = config.get_object("eks_node_group_instance_types") or \
     die("eks_node_group_instance_types is required. Example valid value: [\"t3.large\", \"m5.large\"]")
 
-pulumi.export("resourcePrefix", resource_prefix)
+pulumi.export("resource_prefix", resource_prefix)
 
 # The number of PUBLIC subnets to create
 public_subnet_count = config.get_int("public_subnet_count")

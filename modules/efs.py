@@ -43,10 +43,10 @@ class Efs(pulumi.ComponentResource):
             opts = pulumi.ResourceOptions(parent=self))
 
         main_mounts = []
-        for _range in [{"value": i} for i in range(0, len(args["private_subnet_ids"]))]:
-            main_mounts.append(aws.efs.MountTarget(f"{name}-main_mounts-{_range['value']}",
+        for i in range(len(args["private_subnet_ids"])):
+             main_mounts.append(aws.efs.MountTarget(f"{name}-main_mounts-{i}",
                 file_system_id=main.id,
-                subnet_id=args["private_subnet_ids"][_range["value"]],
+                subnet_id=args["private_subnet_ids"][i],
                 security_groups=[efs_sg.id],
                 opts = pulumi.ResourceOptions(parent=self)))
 

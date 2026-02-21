@@ -58,12 +58,12 @@ class EksNodesEc2(pulumi.ComponentResource):
             opts=pulumi.ResourceOptions(parent=self))
 
         node = []
-        for _range in [{"value": i} for i in range(0, len(args["private_subnet_ids"]))]:
-            ng = aws.eks.NodeGroup(f"{name}-node-{_range['value']}",
+        for i in range(len(args["private_subnet_ids"])):
+            ng = aws.eks.NodeGroup(f"{name}-node-{i}",
                 cluster_name=args["cluster_name"],
-                node_group_name=f"{args['cluster_name']}-{args['nodegroup_name']}-{_range['value']}",
+                node_group_name=f"{args['cluster_name']}-{args['nodegroup_name']}-{i}",
                 node_role_arn=args["awsIamRoleNodeArn"],
-                subnet_ids=[args["private_subnet_ids"][_range["value"]]],
+                subnet_ids=[args["private_subnet_ids"][i]],
                 instance_types=args["instanceTypes"],
                 ami_type="AL2023_x86_64_STANDARD",
                 launch_template={
@@ -87,7 +87,7 @@ class EksNodesEc2(pulumi.ComponentResource):
             # Tag the underlying ASG with all tags
             for key, val in args["tags"].items():
                 aws.autoscaling.Tag(
-                    f"{name}-asg-tag-{_range['value']}-{key}",
+                    f"{name}-asg-tag-{i}-{key}",
                     autoscaling_group_name=ng.resources.apply(
                         lambda r: r[0].autoscaling_groups[0].name
                     ),
@@ -103,7 +103,7 @@ class EksNodesEc2(pulumi.ComponentResource):
             asg_schedule = args.get("asg_schedule") or {}
             required_schedule_keys = ["weekday_config_down", "weekday_config_up", "weekend_config", "timezone"]
             if asg_schedule and all(k in asg_schedule for k in required_schedule_keys):
-                Scheduling(f"scheduling-{_range['value']}", {
+                Scheduling(f"scheduling-{i}", {
                     'autoscaling_group_name': ng.resources.apply(
                         lambda r: r[0].autoscaling_groups[0].name
                     ),
