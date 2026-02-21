@@ -10,7 +10,7 @@ import pulumiverse_time as time
 def not_implemented(msg):
     raise NotImplementedError(msg)
 
-class EksNodesEc2Args(TypedDict, total=False):
+class EksNodesEc2Args(TypedDict):
     cluster_name: Input[Any]
     private_subnet_ids: Input[Any]
     policyAttachmentAmazonEKSWorkerNodePolicy: Input[Any]
