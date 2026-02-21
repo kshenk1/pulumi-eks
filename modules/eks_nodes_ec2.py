@@ -1,5 +1,5 @@
 import pulumi
-from scheduling import Scheduling
+from modules.scheduling import Scheduling
 from pulumi import Input
 from typing import Optional, Dict, TypedDict, Any
 import pulumi_aws as aws
@@ -26,7 +26,7 @@ class EksNodesEc2Args(TypedDict):
     memory_min: Input[Any]
     vcpu_min: Input[Any]
     tags: Input[Any]
-    asg_schedule: Input[Any]
+    asg_schedule: Input[dict]
 
 class EksNodesEc2(pulumi.ComponentResource):
     def __init__(self, name: str, args: EksNodesEc2Args, opts: Optional[pulumi.ResourceOptions] = None):

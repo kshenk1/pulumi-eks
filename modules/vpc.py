@@ -3,7 +3,7 @@ from typing import Optional, Sequence, TypedDict
 import pulumi_aws as aws
 
 
-class VpcArgs(TypedDict, total=False):
+class VpcArgs(TypedDict):
     cidr_block: str
     subnet_cidr_prefix: str
     public_subnet_count: int
@@ -12,7 +12,6 @@ class VpcArgs(TypedDict, total=False):
     enable_dns_support: bool
     availability_zones: Sequence[str]
     resource_prefix: str
-
 
 class Vpc(pulumi.ComponentResource):
     def __init__(self, name: str, args: VpcArgs, opts: Optional[pulumi.ResourceOptions] = None):

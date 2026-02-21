@@ -3,7 +3,7 @@ from pulumi import Input
 from typing import Optional, Dict, TypedDict, Any
 import pulumi_aws as aws
 
-class EfsArgs(TypedDict, total=False):
+class EfsArgs(TypedDict):
     resource_prefix: Input[Any]
     private_subnet_ids: Input[Any]
     vpcid: Input[Any]

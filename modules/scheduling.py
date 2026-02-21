@@ -3,12 +3,12 @@ from pulumi import Input
 from typing import Optional, Dict, TypedDict, Any
 import pulumi_aws as aws
 
-class SchedulingArgs(TypedDict, total=False):
-    timezone: Input[Any]
-    autoscaling_group_name: Input[Any]
-    weekday_config_up: Input[Any]
-    weekday_config_down: Input[Any]
-    weekend_config: Input[Any]
+class SchedulingArgs(TypedDict):
+    timezone: Input[str]
+    autoscaling_group_name: Input[str]
+    weekday_config_up: Input[dict]
+    weekday_config_down: Input[dict]
+    weekend_config: Input[dict]
 
 class Scheduling(pulumi.ComponentResource):
     def __init__(self, name: str, args: SchedulingArgs, opts:Optional[pulumi.ResourceOptions] = None):
@@ -19,7 +19,7 @@ class Scheduling(pulumi.ComponentResource):
             min_size=args["weekday_config_up"]["min"],
             max_size=args["weekday_config_up"]["max"],
             desired_capacity=args["weekday_config_up"]["desired"],
-            recurrence=args["weekday_config_up"]["cron-schedule"],
+            recurrence=args["weekday_config_up"]["cron_schedule"],
             time_zone=args["timezone"],
             autoscaling_group_name=args["autoscaling_group_name"],
             opts = pulumi.ResourceOptions(parent=self))
@@ -29,7 +29,7 @@ class Scheduling(pulumi.ComponentResource):
             min_size=args["weekday_config_down"]["min"],
             max_size=args["weekday_config_down"]["max"],
             desired_capacity=args["weekday_config_down"]["desired"],
-            recurrence=args["weekday_config_down"]["cron-schedule"],
+            recurrence=args["weekday_config_down"]["cron_schedule"],
             time_zone=args["timezone"],
             autoscaling_group_name=args["autoscaling_group_name"],
             opts = pulumi.ResourceOptions(parent=self))
@@ -39,9 +39,13 @@ class Scheduling(pulumi.ComponentResource):
             min_size=args["weekend_config"]["min"],
             max_size=args["weekend_config"]["max"],
             desired_capacity=args["weekend_config"]["desired"],
-            recurrence=args["weekend_config"]["cron-schedule"],
+            recurrence=args["weekend_config"]["cron_schedule"],
             time_zone=args["timezone"],
             autoscaling_group_name=args["autoscaling_group_name"],
             opts = pulumi.ResourceOptions(parent=self))
 
-        self.register_outputs()
+        self.register_outputs({
+            "eks_nodes_up_morning": eks_nodes_up_morning.id,
+            "eks_nodes_down_evening": eks_nodes_down_evening.id,
+            "eks_nodes_down_weekend": eks_nodes_down_weekend.id,
+        })

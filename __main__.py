@@ -1,22 +1,22 @@
 import pulumi
-# from asg_tags import AsgTags
-from efs import Efs
-from eks import Eks
-from eks_nodes_ec2 import EksNodesEc2
-from rds import Rds
-from scheduling import Scheduling
-from vpc import Vpc
+from modules.efs import Efs
+from modules.eks import Eks
+from modules.eks_nodes_ec2 import EksNodesEc2
+from modules.rds import Rds
+from modules.vpc import Vpc
 import pulumi_aws as aws
 import pulumi_command as command
 import pulumi_null as null
 import pulumi_std as std
-
 
 def die(msg):
     raise Exception(msg)
 
 config = pulumi.Config()
 
+###################################################################################################
+## Setting variables & Performing validation
+###################################################################################################
 resource_prefix = config.get("resource_prefix") or \
     die("resource_prefix is a required configuration value and must be set to continue. This value is used as a prefix for all resources created in this project.")
 vpc_cidr_block = config.get("vpc_cidr_block") or \
@@ -40,7 +40,6 @@ private_subnet_count = config.get_int("private_subnet_count")
 if private_subnet_count is None:
     private_subnet_count = 1
 
-# A simple hash map of key-value pairs that will be attached to each object created by this terraform.
 common_tags = config.get_object("common_tags")
 if common_tags is None:
     common_tags = {
@@ -82,7 +81,7 @@ create_asg_schedule = config.get_bool("create_asg_schedule") or False
 cluster_enable_private_access = config.get_bool("cluster_enable_private_access")
 cluster_enable_public_access = config.get_bool("cluster_enable_public_access")
 
-# You typically want YOUR local IP address in here at the least. See: https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_cluster.html#public_access_cidrs
+# You typically want YOUR local IP address in here at the least.
 cluster_access_cidrs = [config.get("myip")]
 
 asg_schedule = config.get_object("asg_schedule")
@@ -92,16 +91,24 @@ asg_schedule = config.get_object("asg_schedule")
 # This is required when creating the RDS instance (create-rds-instance=true)
 domain_name = config.get("domain_name")
 
+internal_domain = config.get("internal_domain")
+
+if create_rds_instance and not internal_domain:
+    die("internal_domain must be set when create_rds_instance is true")
+
 if eks_max_nodes_per_nodegroup < eks_nodes_per_nodegroup and eks_nodes_per_nodegroup > 0:
     die("eks_max_nodes_per_nodegroup must be greater than eks_nodes_per_nodegroup!")
 
 if create_rds_instance == True and domain_name == None:
     die("The domain_name cannot be blank when create_rds_instance is true")
 
-# Used to configure credentials for providers
 available = aws.get_availability_zones_output()
 
-# Modules
+###################################################################################################
+## Creating resources
+###################################################################################################
+## VPC
+###################################################################################################
 vpc = Vpc("vpc", {
     'availability_zones': available.names, 
     'resource_prefix': resource_prefix, 
@@ -112,10 +119,12 @@ vpc = Vpc("vpc", {
     'enable_dns_hostnames': config.get_bool("enable_dns_host_name") or True, 
     'subnet_cidr_prefix': subnet_cidr_prefix
 })
-pulumi.export("vpcId", vpc.vpcid)
-pulumi.export("vpcCidrBlock", vpc.cidr_block)
-pulumi.export("natPublicIp", vpc.nat_public_ip)
+pulumi.export("vpc_id", vpc.vpcid)
+pulumi.export("vpc_cidr_block", vpc.cidr_block)
+pulumi.export("nat_public_ip", vpc.nat_public_ip)
 
+## EKS Cluster
+###################################################################################################
 if create_eks_cluster:
     eks = Eks(f"eks", {
         'cluster_name': resource_prefix, 
@@ -151,16 +160,16 @@ if create_eks_cluster:
         'asg_schedule': asg_schedule if create_asg_schedule else {}
     })
 
-    pulumi.export("eksNodeRoleArn", eks.awsIamRoleNodeArn)
-    pulumi.export("eksClusterRoleName", eks.eks_cluster_role_name)
-    pulumi.export("eksClusterName", eks.cluster_name)
-    pulumi.export("eksClusterId", eks.clusterId)
-    pulumi.export("eksClusterStatus", eks.status)
-    pulumi.export("eksClusterEndpoint", eks.eksEp)
+    pulumi.export("eks_node_role_arn", eks.awsIamRoleNodeArn)
+    pulumi.export("eks_cluster_role_name", eks.eks_cluster_role_name)
+    pulumi.export("eks_cluster_name", eks.cluster_name)
+    pulumi.export("eks_cluster_id", eks.clusterId)
+    pulumi.export("eks_cluster_status", eks.status)
+    pulumi.export("eks_cluster_endpoint", eks.eksEp)
 
-    pulumi.export("eksNodegroupIds", eks_nodes_ec2.eks_nodegroup_ids)
-    pulumi.export("eksNodegroupArns", eks_nodes_ec2.eks_nodegroup_arns)
-    pulumi.export("eksNodegroupASGs", eks_nodes_ec2.eks_nodegroup_asgs)
+    pulumi.export("eks_nodegroup_ids", eks_nodes_ec2.eks_nodegroup_ids)
+    pulumi.export("eks_nodegroup_arns", eks_nodes_ec2.eks_nodegroup_arns)
+    pulumi.export("eks_nodegroup_asgs", eks_nodes_ec2.eks_nodegroup_asgs)
 
     create_kubeconfig = null.Resource("create_kubeconfig", triggers={
         "always_run": std.timestamp_output().apply(lambda invoke: invoke.result),
@@ -174,9 +183,11 @@ if create_eks_cluster:
         opts = pulumi.ResourceOptions(depends_on=[create_kubeconfig])
     )
 
-    ## END: if create_eks_cluster:
+## END: if create_eks_cluster
+###################################################################################################
     
-
+## EFS
+###################################################################################################
 efs = []
 if create_efs_filesystem:
     efs.append(Efs(f"efs-1", {
@@ -187,21 +198,22 @@ if create_efs_filesystem:
         }
     ))
 
-    pulumi.export("efsMountTarget", [__item.efs_mount_target for __item in efs])
-    pulumi.export("efsSystemId", [__item.efs_file_system_id for __item in efs])
+    pulumi.export("efs_mount_target", [__item.efs_mount_target for __item in efs])
+    pulumi.export("efs_system_id", [__item.efs_file_system_id for __item in efs])
     
-
+## RDS
+###################################################################################################
 if create_rds_instance:
     db_mysql = config.get_object("db_mysql")
     if db_mysql is None:
         db_mysql = {
-            "allocated-storage": 25,
-            "database-name": "thedb",
-            "database-user": "theuser",
-            "db-port": 3306,
+            "allocated_storage": 25,
+            "database_name": "thedb",
+            "database_user": "theuser",
+            "db_port": 3306,
             "engine": "mysql",
-            "engine-version": "8.0.33",
-            "instance-class": "db.m5d.large",
+            "engine_version": "8.0.33",
+            "instance_class": "db.m5d.large",
         }
     rds = Rds("rds", {
         'database_name': db_mysql["database_name"], 
@@ -211,18 +223,18 @@ if create_rds_instance:
         'database_user': db_mysql["database_user"], 
         'instance_class': db_mysql["instance_class"], 
         'allocated_storage': db_mysql["allocated_storage"], 
-        'domain_name': domain_name, 
         'rds_instance_identifier': resource_prefix, 
         'vpc_cidr_block': vpc_cidr_block, 
-        'private_subnet_ids': vpc["private_subnet_ids"], 
+        'private_subnet_ids': vpc.private_subnet_ids, 
         'vpc_id': vpc.vpcid, 
-        'db_dns_name': f"db.{resource_prefix}.internal.com"
+        'db_dns_name': f"db.{resource_prefix}.{internal_domain}",
+        'internal_domain': internal_domain
     })
 
-    pulumi.export("dbName", std.join_output(separator=",", input=rds.name).apply(lambda invoke: invoke.result))
-    pulumi.export("dbUser", std.join_output(separator=",", input=rds.user).apply(lambda invoke: invoke.result))
-    pulumi.export("dbPassword", std.join_output(separator=",", input=rds.password).apply(lambda invoke: invoke.result))
-    pulumi.export("dbEndpoint", std.join_output(separator=",", input=rds.endpoint).apply(lambda invoke: invoke.result))
-    pulumi.export("dbAddress", std.join_output(separator=",", input=rds.address).apply(lambda invoke: invoke.result))
-    pulumi.export("dbPort", std.join_output(separator=",", input=rds.port).apply(lambda invoke: invoke.result))
+    pulumi.export("db_name", rds.name)
+    pulumi.export("db_port", rds.port)
+    pulumi.export("db_user", rds.user)
+    pulumi.export("db_password", rds.password)
+    pulumi.export("db_endpoint", rds.endpoint)
+    pulumi.export("db_dns_name", rds.dns_name)
 
