@@ -99,16 +99,18 @@ class EksNodesEc2(pulumi.ComponentResource):
                     opts=pulumi.ResourceOptions(parent=ng),
                 )
 
-            # Apply schedules to the ASG
-            if args["asg_schedule"]:
+            # Apply schedules to the ASG if all required schedule keys are present
+            asg_schedule = args.get("asg_schedule") or {}
+            required_schedule_keys = ["weekday_config_down", "weekday_config_up", "weekend_config", "timezone"]
+            if asg_schedule and all(k in asg_schedule for k in required_schedule_keys):
                 Scheduling(f"scheduling-{_range['value']}", {
                     'autoscaling_group_name': ng.resources.apply(
                         lambda r: r[0].autoscaling_groups[0].name
                     ),
-                    'weekday_config_down': args["asg_schedule"]["weekday_config_down"],
-                    'weekday_config_up': args["asg_schedule"]["weekday_config_up"],
-                    'weekend_config': args["asg_schedule"]["weekend_config"],
-                    'timezone': args["asg_schedule"]["timezone"]
+                    'weekday_config_down': asg_schedule["weekday_config_down"],
+                    'weekday_config_up': asg_schedule["weekday_config_up"],
+                    'weekend_config': asg_schedule["weekend_config"],
+                    'timezone': asg_schedule["timezone"]
                 },
                     opts=pulumi.ResourceOptions(parent=ng)
                 )
