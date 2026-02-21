@@ -5,7 +5,7 @@ import json
 import pulumi_aws as aws
 import pulumi_std as std
 
-class EksArgs(TypedDict, total=False):
+class EksArgs(TypedDict):
     cluster_name: Input[Any]
     k8s_version: Input[Any]
     k8s_upgrade_policy: Input[Any]

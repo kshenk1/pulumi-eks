@@ -6,19 +6,19 @@ import pulumi_random as random
 import pulumi_std as std
 
 class RdsArgs(TypedDict, total=False):
-    rds_instance_identifier: Input[Any]
-    private_subnet_ids: Input[Any]
-    vpc_id: Input[Any]
-    vpc_cidr_block: Input[Any]
-    database_name: Input[Any]
-    database_user: Input[Any]
-    db_dns_name: Input[Any]
-    domain_name: Input[Any]
+    rds_instance_identifier: Input[str]
+    private_subnet_ids: Input[list]
+    vpc_id: Input[str]
+    vpc_cidr_block: Input[str]
+    database_name: Input[str]
+    database_user: Input[str]
+    db_dns_name: Input[str]
     engine: Input[str]
     engine_version: Input[str]
     instance_class: Input[str]
     allocated_storage: Input[float]
     db_port: Input[str]
+    internal_domain: Input[str]
 
 class Rds(pulumi.ComponentResource):
     def __init__(self, name: str, args: RdsArgs, opts:Optional[pulumi.ResourceOptions] = None):
@@ -102,10 +102,17 @@ class Rds(pulumi.ComponentResource):
             opts = pulumi.ResourceOptions(parent=self)
         )
 
-        existing = aws.route53.get_zone_output(private_zone=False, name=f"{args['domain_name']}.")
+        # Create a private hosted zone associated with the VPC
+        private_zone = aws.route53.Zone("rds-private-zone",
+            name=args['internal_domain'],  # Your internal domain
+            vpcs=[{
+                "vpc_id": args["vpc_id"],
+            }],
+            comment="Private zone for RDS endpoints",
+        )
 
         rds_record = aws.route53.Record(f"{name}-rds",
-            zone_id=existing.apply(lambda existing: existing.id),
+            zone_id=private_zone.id,
             name=args["db_dns_name"],
             type=aws.route53.RecordType.CNAME,
             ttl=300,
@@ -118,6 +125,7 @@ class Rds(pulumi.ComponentResource):
         self.user = default_instance.username
         self.password = default_instance.password
         self.endpoint = default_instance.endpoint
+        self.dns_name = rds_record.fqdn
         self.address = default_instance.address
         self.port = default_instance.port
 
@@ -126,6 +134,7 @@ class Rds(pulumi.ComponentResource):
             'user': self.user, 
             'password': self.password, 
             'endpoint': self.endpoint, 
+            'dns_name': self.dns_name,
             'address': self.address, 
             'port': self.port
         })
