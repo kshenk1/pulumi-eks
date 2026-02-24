@@ -25,7 +25,7 @@ config:
     cb-purpose: testing pulumi infra mgmt
     cb-user: kshenk
   pulumi-eks:create_asg_schedule: "true"
-  pulumi-eks:create_alb_controller: "false"
+  pulumi-eks:create_alb_controller: "true"
   pulumi-eks:create_efs_filesystem: "true"
   pulumi-eks:create_eks_cluster: "true"
   pulumi-eks:create_r53_zone: "true"
@@ -55,6 +55,6 @@ config:
   pulumi-eks:resource_prefix: ks-cbci-01
   pulumi-eks:subnet_cidr_prefix: "172.31"
   pulumi-eks:vpc_cidr_block: 172.31.0.0/16
-  pulumi-eks:zone_name: ng.kshenk.ps.beescloud.com
+  pulumi-eks:zone_name: ng.aws.kshenk.ps.beescloud.com
   pulumi-eks:myip: 71.60.6.47/32
   

@@ -235,6 +235,7 @@ class Eks(pulumi.ComponentResource):
         # Strip the "https://" to get the bare URL for the provider
         self.oidc_provider_url = oidc_issuer_url.apply(lambda url: url.replace("https://", ""))
         self.oidc_provider_arn = oidc_provider.arn
+        self.certificate_authority = main.certificate_authority.apply(lambda ca: ca.data if ca else "")
 
         self.aws_iam_role_node_id = eks_nodes.id
         self.aws_iam_role_node_arn = eks_nodes.arn
@@ -246,6 +247,7 @@ class Eks(pulumi.ComponentResource):
         self.cluster_id = main.id
         self.cluster_name = main.name
         self.eks_security_group = eks_sg.id
+        
         self.register_outputs({
             'aws_iam_role_node_id': eks_nodes.id, 
             'aws_iam_role_node_arn': eks_nodes.arn, 
@@ -258,4 +260,5 @@ class Eks(pulumi.ComponentResource):
             'eks_security_group': eks_sg.id,
             'oidc_provider_arn': self.oidc_provider_arn,
             'oidc_provider_url': self.oidc_provider_url,
+            'certificate_authority': self.certificate_authority,
         })

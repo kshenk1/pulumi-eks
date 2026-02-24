@@ -1,4 +1,5 @@
 import pulumi
+import json
 from modules.efs import Efs
 from modules.eks import Eks
 from modules.eks_nodes_ec2 import EksNodesEc2
@@ -10,6 +11,7 @@ import pulumi_aws as aws
 import pulumi_command as command
 import pulumi_null as null
 import pulumi_std as std
+import pulumi_kubernetes as k8s
 
 def die(msg):
     raise Exception(msg)
@@ -163,6 +165,24 @@ if create_eks_cluster:
         ]).apply(lambda invoke: invoke.result)
     })
 
+    k8s_provider = k8s.Provider(f"{resource_prefix}-k8s-provider",
+        kubeconfig=pulumi.Output.all(
+            eks.eks_endpoint,
+            eks.certificate_authority,  # you'll need to expose this from Eks
+            eks.cluster_name,
+        ).apply(lambda args: json.dumps({
+            "apiVersion": "v1",
+            "clusters": [{"cluster": {"server": args[0], "certificate-authority-data": args[1]}, "name": "eks"}],
+            "contexts": [{"context": {"cluster": "eks", "user": "eks"}, "name": "eks"}],
+            "current-context": "eks",
+            "users": [{"name": "eks", "user": {"exec": {
+                "apiVersion": "client.authentication.k8s.io/v1beta1",
+                "command": "aws",
+                "args": ["eks", "get-token", "--cluster-name", args[2]],
+            }}}],
+        })),
+    )
+
     eks_nodes_ec2 = EksNodesEc2(aws_provider, f"{resource_prefix}-eks-nodes", {
         'cluster_name': resource_prefix, 
         'aws_iam_role_node_arn': eks.aws_iam_role_node_arn, 
@@ -220,12 +240,15 @@ if create_efs_filesystem:
     pulumi.export("efs_system_id", [__item.efs_file_system_id for __item in efs])
 
 if create_alb_controller:
-    alb = LoadBalancer(f"{resource_prefix}-alb-controller", {
+    alb = LoadBalancer(k8s_provider, f"{resource_prefix}-alb-controller", {
         'cluster_name': eks.cluster_name,
         'resource_prefix': resource_prefix,
         'oidc_provider_arn': eks.oidc_provider_arn,
         'oidc_provider_url': eks.oidc_provider_url,
     })
+
+    pulumi.export("alb_controller_sa_name", alb.service_account_name)
+    pulumi.export("alb_controller_role_arn", alb.lb_controller_role_arn)
 
 ## RDS
 ###################################################################################################

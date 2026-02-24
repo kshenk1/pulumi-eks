@@ -17,7 +17,7 @@ class LBArgs(TypedDict, total=False):
     cluster_name: Input[str]
 
 class LoadBalancer(pulumi.ComponentResource):
-    def __init__(self, name: str, args: LBArgs, opts:Optional[pulumi.ResourceOptions] = None):
+    def __init__(self, k8s_provider: k8s.Provider, name: str, args: LBArgs, opts:Optional[pulumi.ResourceOptions] = None):
         super().__init__("components:index:LoadBalancer", name, args, opts)
 
         # 1. IAM role with OIDC trust policy
@@ -60,6 +60,7 @@ class LoadBalancer(pulumi.ComponentResource):
                     "eks.amazonaws.com/role-arn": lb_controller_role.arn,
                 },
             ),
+            opts=pulumi.ResourceOptions(provider=k8s_provider)
         )
 
         alb_controller = k8s.helm.v4.Chart(f"{name}-chart",
@@ -75,9 +76,13 @@ class LoadBalancer(pulumi.ComponentResource):
                     "name": sa_name,
                 },
             },
+            opts=pulumi.ResourceOptions(provider=k8s_provider)
         )
 
+        self.lb_controller_role_arn = lb_controller_role.arn
+        self.service_account_name = sa_name
+
         self.register_outputs({
-            "lb_controller_role_arn": lb_controller_role.arn,
-            "service_account_name": sa_name,
+            "lb_controller_role_arn": self.lb_controller_role_arn,
+            "service_account_name": self.service_account_name,
         })
