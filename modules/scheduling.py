@@ -11,7 +11,7 @@ class SchedulingArgs(TypedDict):
     weekend_config: Input[dict]
 
 class Scheduling(pulumi.ComponentResource):
-    def __init__(self, name: str, args: SchedulingArgs, opts:Optional[pulumi.ResourceOptions] = None):
+    def __init__(self, provider: aws.Provider, name: str, args: SchedulingArgs, opts:Optional[pulumi.ResourceOptions] = None):
         super().__init__("components:index:Scheduling", name, args, opts)
 
         eks_nodes_up_morning = aws.autoscaling.Schedule(f"{name}-eks-nodes-up-morning",
@@ -22,7 +22,7 @@ class Scheduling(pulumi.ComponentResource):
             recurrence=args["weekday_config_up"]["cron_schedule"],
             time_zone=args["timezone"],
             autoscaling_group_name=args["autoscaling_group_name"],
-            opts = pulumi.ResourceOptions(parent=self))
+            opts = pulumi.ResourceOptions(parent=self, provider=provider))
 
         eks_nodes_down_evening = aws.autoscaling.Schedule(f"{name}-eks-nodes-down-evening",
             scheduled_action_name=f"{args['autoscaling_group_name']}-down",
@@ -32,7 +32,7 @@ class Scheduling(pulumi.ComponentResource):
             recurrence=args["weekday_config_down"]["cron_schedule"],
             time_zone=args["timezone"],
             autoscaling_group_name=args["autoscaling_group_name"],
-            opts = pulumi.ResourceOptions(parent=self))
+            opts = pulumi.ResourceOptions(parent=self, provider=provider))
 
         eks_nodes_down_weekend = aws.autoscaling.Schedule(f"{name}-eks-nodes-down-weekend",
             scheduled_action_name=f"{args['autoscaling_group_name']}-weekend",
@@ -42,7 +42,7 @@ class Scheduling(pulumi.ComponentResource):
             recurrence=args["weekend_config"]["cron_schedule"],
             time_zone=args["timezone"],
             autoscaling_group_name=args["autoscaling_group_name"],
-            opts = pulumi.ResourceOptions(parent=self))
+            opts = pulumi.ResourceOptions(parent=self, provider=provider))
 
         self.register_outputs({
             "eks_nodes_up_morning": eks_nodes_up_morning.id,
