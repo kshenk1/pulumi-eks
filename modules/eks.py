@@ -4,6 +4,7 @@ from typing import Optional, Dict, TypedDict, Any
 import json
 import pulumi_aws as aws
 import pulumi_std as std
+import pulumi_tls as tls
 
 class EksArgs(TypedDict):
     cluster_name: Input[Any]
@@ -82,10 +83,14 @@ class Eks(pulumi.ComponentResource):
             },
             opts = pulumi.ResourceOptions(parent=self, provider=provider))
 
+        oidc_issuer_raw: pulumi.Output[str] = main.identities.apply(
+            lambda ids: str(ids[0].oidcs[0].issuer) if ids and ids[0].oidcs else ""
+        )
+
         assume_role_policy = pulumi.Output.all(
             account_id=current.account_id,
             oidc_issuer=std.replace_output(
-                text=main.identities[0].oidcs[0].issuer,
+                text=oidc_issuer_raw,
                 search="https://",
                 replace=""
             ),
@@ -102,13 +107,13 @@ class Eks(pulumi.ComponentResource):
                 {
                     "Effect": "Allow",
                     "Principal": {
-                        "Federated": f"arn:aws:iam::{_args[0]}:oidc-provider/{_args[1]}",
+                        "Federated": f"arn:aws:iam::{_args['account_id']}:oidc-provider/{_args['oidc_issuer']}",
                     },
                     "Action": "sts:AssumeRoleWithWebIdentity",
                     "Condition": {
                         "StringEquals": {
-                            f"{_args[1]}:aud": "sts.amazonaws.com",
-                            f"{_args[1]}:sub": "system:serviceaccount:kube-system:ebs-csi-controller-sa",
+                            f"{_args['oidc_issuer']}:aud": "sts.amazonaws.com",
+                            f"{_args['oidc_issuer']}:sub": "system:serviceaccount:kube-system:ebs-csi-controller-sa",
                         },
                     },
                 },
@@ -219,7 +224,7 @@ class Eks(pulumi.ComponentResource):
         oidc_issuer_url = main.identities[0].oidcs[0].issuer
 
         # Fetch the TLS thumbprint (required for the OIDC provider)
-        tls_cert = aws.tls.get_certificate_output(url=oidc_issuer_url)
+        tls_cert = tls.get_certificate_output(url=oidc_issuer_url)
 
         oidc_provider = aws.iam.OpenIdConnectProvider(f"{name}-oidc-provider",
             client_id_lists=["sts.amazonaws.com"],
