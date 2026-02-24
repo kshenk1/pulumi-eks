@@ -23,11 +23,19 @@ class Route53(pulumi.ComponentResource):
             opts = pulumi.ResourceOptions(parent=self, provider=provider)
         )
 
+        dvo = cert.domain_validation_options.apply(
+            lambda opts: {
+                "name": opts[0].resource_record_name,
+                "type": opts[0].resource_record_type,
+                "value": opts[0].resource_record_value,
+            } if opts else {"name": "", "type": "", "value": ""}
+        )
+
         validation_record = aws.route53.Record(f"{name}-cert-validation-record",
             zone_id=zone.zone_id,
-            name=cert.domain_validation_options[0].resource_record_name,
-            type=cert.domain_validation_options[0].resource_record_type,
-            records=[cert.domain_validation_options[0].resource_record_value],
+            name=dvo["name"],
+            type=dvo["type"],
+            records=[dvo["value"]],
             ttl=300,
             opts = pulumi.ResourceOptions(parent=self, provider=provider)
         )

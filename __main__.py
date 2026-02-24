@@ -4,8 +4,6 @@ from modules.eks import Eks
 from modules.eks_nodes_ec2 import EksNodesEc2
 from modules.rds import Rds
 from modules.vpc import Vpc
-from modules.route53 import Route53
-from modules.lb import LoadBalancer
 import pulumi_aws as aws
 import pulumi_command as command
 import pulumi_null as null
@@ -17,16 +15,20 @@ def die(msg):
 config = pulumi.Config()
 
 ###################################################################################################
-## Required Settings
+## Setting variables & Performing validation
 ###################################################################################################
-resource_prefix                 = config.require("resource_prefix")
-vpc_cidr_block                  = config.require("vpc_cidr_block")
-subnet_cidr_prefix              = config.require("subnet_cidr_prefix")
-kubernetes_version              = config.require("kubernetes_version")
-eks_node_group_instance_types   = config.require_object("eks_node_group_instance_types")
-zone_name                       = config.require("zone_name")
+resource_prefix = config.get("resource_prefix") or \
+    die("resource_prefix is a required configuration value and must be set to continue. This value is used as a prefix for all resources created in this project.")
+vpc_cidr_block = config.get("vpc_cidr_block") or \
+    die("vpc_cidr_block is required")
+subnet_cidr_prefix = config.get("subnet_cidr_prefix") or \
+    die("subnet_cidr_prefix is required")
+kubernetes_version = config.get("kubernetes_version") or \
+    die("kubernetes_version is required. Example valid values: 1.33, 1.35, etc.")
+eks_node_group_instance_types = config.get_object("eks_node_group_instance_types") or \
+    die("eks_node_group_instance_types is required. Example valid value: [\"t3.large\", \"m5.large\"]")
 
-pulumi.export("resource_prefix", resource_prefix)
+pulumi.export("resourcePrefix", resource_prefix)
 
 # The number of PUBLIC subnets to create
 public_subnet_count = config.get_int("public_subnet_count")
@@ -44,8 +46,8 @@ if common_tags is None:
         "cb-environment": "development",
         "cb-expiry": "2027-2-30",
         "cb-owner": "professional-services",
-        "cb-purpose": "local testing cluster",
-        "cb-user": "kshenk",
+        "cb-purpose": "undefined",
+        "cb-user": "<username>",
     }
 
 kubernetes_upgrade_policy = config.get("kubernetes_upgrade_policy")
@@ -71,13 +73,10 @@ eks_max_nodes_per_nodegroup = config.get_int("eks_max_nodes_per_nodegroup")
 if eks_max_nodes_per_nodegroup is None:
     eks_max_nodes_per_nodegroup = 10
 
-create_alb_controller = config.get_bool("create_alb_controller") or False
 create_eks_cluster = config.get_bool("create_eks_cluster") or False
 create_efs_filesystem = config.get_bool("create_efs_filesystem") or False
 create_rds_instance = config.get_bool("create_rds_instance") or False
 create_asg_schedule = config.get_bool("create_asg_schedule") or False
-create_r53_zone = config.get_bool("create_r53_zone") or False
-route53_wait_for_validation = config.get_bool("route53_wait_for_validation") or False
 
 cluster_enable_private_access = config.get_bool("cluster_enable_private_access")
 cluster_enable_public_access = config.get_bool("cluster_enable_public_access")
@@ -105,18 +104,12 @@ if create_rds_instance == True and domain_name == None:
 
 available = aws.get_availability_zones_output()
 
-aws_provider = aws.Provider("aws-provider",
-    default_tags=aws.ProviderDefaultTagsArgs(
-        tags=common_tags
-    )
-)
-
 ###################################################################################################
 ## Creating resources
 ###################################################################################################
 ## VPC
 ###################################################################################################
-vpc = Vpc(aws_provider, f"{resource_prefix}-vpc", {
+vpc = Vpc("vpc", {
     'availability_zones': available.names, 
     'resource_prefix': resource_prefix, 
     'public_subnet_count': public_subnet_count, 
@@ -126,33 +119,18 @@ vpc = Vpc(aws_provider, f"{resource_prefix}-vpc", {
     'enable_dns_hostnames': config.get_bool("enable_dns_host_name") or True, 
     'subnet_cidr_prefix': subnet_cidr_prefix
 })
-
-pulumi.export("vpc_id", vpc.vpc_id)
+pulumi.export("vpc_id", vpc.vpcid)
 pulumi.export("vpc_cidr_block", vpc.cidr_block)
 pulumi.export("nat_public_ip", vpc.nat_public_ip)
-
-## Hosted Zone & Certificate
-###################################################################################################
-if create_r53_zone:
-    zone = Route53(aws_provider, f"{resource_prefix}-route53", {
-        'resource_prefix': resource_prefix, 
-        'zone_name': zone_name,
-        'wait_for_validation': route53_wait_for_validation
-    })
-
-    pulumi.export("zone_name", zone.zone_name)
-    pulumi.export("zone_id", zone.zone_id)
-    pulumi.export("certificate_arn", zone.certificate_arn)
-    pulumi.export("nameservers", zone.nameservers)
 
 ## EKS Cluster
 ###################################################################################################
 if create_eks_cluster:
-    eks = Eks(aws_provider, f"{resource_prefix}-eks", {
+    eks = Eks(f"eks", {
         'cluster_name': resource_prefix, 
         'k8s_version': kubernetes_version, 
         'k8s_upgrade_policy': kubernetes_upgrade_policy, 
-        'vpc_id': vpc.vpc_id, 
+        'vpcid': vpc.vpcid, 
         'vpc_cidr': vpc_cidr_block, 
         'private_subnet_ids': vpc.private_subnet_ids, 
         'enable_private_access': cluster_enable_private_access, 
@@ -163,12 +141,16 @@ if create_eks_cluster:
         ]).apply(lambda invoke: invoke.result)
     })
 
-    eks_nodes_ec2 = EksNodesEc2(aws_provider, f"{resource_prefix}-eks-nodes", {
+    eks_nodes_ec2 = EksNodesEc2(f"eks-nodes-ec2", {
         'cluster_name': resource_prefix, 
-        'aws_iam_role_node_arn': eks.aws_iam_role_node_arn, 
+        'awsIamRoleNodeArn': eks.awsIamRoleNodeArn, 
         'nodegroup_name': "ng", 
+        'policyAttachmentAmazonEC2ContainerRegistryReadOnly': eks.policyAttachmentAmazonEC2ContainerRegistryReadOnly, 
+        'policyAttachmentAmazonEKSWorkerNodePolicy': eks.policyAttachmentAmazonEKSWorkerNodePolicy, 
+        'policyAttachmentAmazonEKSCNIPolicy': eks.policyAttachmentAmazonEKSCNIPolicy, 
+        'policyAttachmentAmazonSSMManagedInstanceCore': eks.policyAttachmentAmazonSSMManagedInstanceCore, 
         'private_subnet_ids': vpc.private_subnet_ids, 
-        'instance_types': eks_node_group_instance_types, 
+        'instanceTypes': eks_node_group_instance_types, 
         'sizeMin': 0,
         'sizeMax': eks_max_nodes_per_nodegroup, 
         'sizeDesired': eks_nodes_per_nodegroup, 
@@ -178,12 +160,12 @@ if create_eks_cluster:
         'asg_schedule': asg_schedule if create_asg_schedule else {}
     })
 
-    pulumi.export("eks_node_role_arn", eks.aws_iam_role_node_arn)
+    pulumi.export("eks_node_role_arn", eks.awsIamRoleNodeArn)
     pulumi.export("eks_cluster_role_name", eks.eks_cluster_role_name)
     pulumi.export("eks_cluster_name", eks.cluster_name)
-    pulumi.export("eks_cluster_id", eks.cluster_id)
+    pulumi.export("eks_cluster_id", eks.clusterId)
     pulumi.export("eks_cluster_status", eks.status)
-    pulumi.export("eks_cluster_endpoint", eks.eks_endpoint)
+    pulumi.export("eks_cluster_endpoint", eks.eksEp)
 
     pulumi.export("eks_nodegroup_ids", eks_nodes_ec2.eks_nodegroup_ids)
     pulumi.export("eks_nodegroup_arns", eks_nodes_ec2.eks_nodegroup_arns)
@@ -208,25 +190,17 @@ if create_eks_cluster:
 ###################################################################################################
 efs = []
 if create_efs_filesystem:
-    efs.append(Efs(aws_provider, f"{resource_prefix}-efs-1", {
+    efs.append(Efs(f"efs-1", {
         'private_subnet_ids': vpc.private_subnet_ids, 
         'resource_prefix': resource_prefix, 
-        'vpc_id': vpc.vpc_id, 
+        'vpcid': vpc.vpcid, 
         'vpc_cidr': vpc_cidr_block
         }
     ))
 
     pulumi.export("efs_mount_target", [__item.efs_mount_target for __item in efs])
     pulumi.export("efs_system_id", [__item.efs_file_system_id for __item in efs])
-
-if create_alb_controller:
-    alb = LoadBalancer(f"{resource_prefix}-alb-controller", {
-        'cluster_name': eks.cluster_name,
-        'resource_prefix': resource_prefix,
-        'oidc_provider_arn': eks.oidc_provider_arn,
-        'oidc_provider_url': eks.oidc_provider_url,
-    })
-
+    
 ## RDS
 ###################################################################################################
 if create_rds_instance:
@@ -241,7 +215,7 @@ if create_rds_instance:
             "engine_version": "8.0.33",
             "instance_class": "db.m5d.large",
         }
-    rds = Rds(aws_provider, f"{resource_prefix}-rds", {
+    rds = Rds("rds", {
         'database_name': db_mysql["database_name"], 
         'engine': db_mysql["engine"], 
         'engine_version': db_mysql["engine_version"], 
@@ -252,7 +226,7 @@ if create_rds_instance:
         'rds_instance_identifier': resource_prefix, 
         'vpc_cidr_block': vpc_cidr_block, 
         'private_subnet_ids': vpc.private_subnet_ids, 
-        'vpc_id': vpc.vpc_id, 
+        'vpc_id': vpc.vpcid, 
         'db_dns_name': f"db.{resource_prefix}.{internal_domain}",
         'internal_domain': internal_domain
     })

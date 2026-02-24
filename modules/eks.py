@@ -9,7 +9,7 @@ class EksArgs(TypedDict):
     cluster_name: Input[Any]
     k8s_version: Input[Any]
     k8s_upgrade_policy: Input[Any]
-    vpc_id: Input[Any]
+    vpcid: Input[Any]
     private_subnet_ids: Input[Any]
     vpc_cidr: Input[Any]
     enable_private_access: Input[Any]
@@ -17,7 +17,7 @@ class EksArgs(TypedDict):
     public_access_cidrs: Input[Any]
 
 class Eks(pulumi.ComponentResource):
-    def __init__(self, provider: aws.Provider, name: str, args: EksArgs, opts:Optional[pulumi.ResourceOptions] = None):
+    def __init__(self, name: str, args: EksArgs, opts:Optional[pulumi.ResourceOptions] = None):
         super().__init__("components:index:Eks", name, args, opts)
 
         current = aws.get_caller_identity_output()
@@ -34,24 +34,24 @@ class Eks(pulumi.ComponentResource):
                     "Action": "sts:AssumeRole",
                 }],
             }),
-            opts = pulumi.ResourceOptions(parent=self, provider=provider))
+            opts = pulumi.ResourceOptions(parent=self))
 
         # Cluster Policy Attachment
         cluster__amazon_eks_cluster_policy = aws.iam.RolePolicyAttachment(f"{name}-cluster-AmazonEKSClusterPolicy",
             policy_arn="arn:aws:iam::aws:policy/AmazonEKSClusterPolicy",
             role=main_cluster.name,
-            opts = pulumi.ResourceOptions(parent=self, provider=provider))
+            opts = pulumi.ResourceOptions(parent=self))
 
         # Service Policy Attachment
         cluster__amazon_eks_service_policy = aws.iam.RolePolicyAttachment(f"{name}-cluster-AmazonEKSServicePolicy",
             policy_arn="arn:aws:iam::aws:policy/AmazonEKSServicePolicy",
             role=main_cluster.name,
-            opts = pulumi.ResourceOptions(parent=self, provider=provider))
+            opts = pulumi.ResourceOptions(parent=self))
 
         eks_sg = aws.ec2.SecurityGroup(f"{name}-eks_sg",
             name=f"{args['cluster_name']}_eks_sg",
             description="Cluster communication with worker nodes",
-            vpc_id=args["vpc_id"],
+            vpc_id=args["vpcid"],
             ingress=[{
                 "from_port": 0,
                 "to_port": 0,
@@ -67,7 +67,7 @@ class Eks(pulumi.ComponentResource):
             tags={
                 "Name": f"{args['cluster_name']}_eks_sg",
             },
-            opts = pulumi.ResourceOptions(parent=self, provider=provider))
+            opts = pulumi.ResourceOptions(parent=self))
 
         main = aws.eks.Cluster(f"{name}-main",
             name=args["cluster_name"],
@@ -80,16 +80,22 @@ class Eks(pulumi.ComponentResource):
                 "endpoint_public_access": args["enable_public_access"],
                 "public_access_cidrs": args["public_access_cidrs"],
             },
-            opts = pulumi.ResourceOptions(parent=self, provider=provider))
+            opts = pulumi.ResourceOptions(parent=self))
+
+        # Extract the OIDC issuer safely via .apply() to avoid KeyError: 0
+        # when the identities list is not yet resolved during preview.
+        oidc_issuer_raw: pulumi.Output[str] = main.identities.apply(
+            lambda ids: str(ids[0].oidcs[0].issuer) if ids and ids[0].oidcs else ""
+        )
 
         assume_role_policy = pulumi.Output.all(
             account_id=current.account_id,
             oidc_issuer=std.replace_output(
-                text=main.identities[0].oidcs[0].issuer,
+                text=oidc_issuer_raw,
                 search="https://",
                 replace=""
             ),
-        ).apply(lambda _args: json.dumps({
+        ).apply(lambda args: json.dumps({
             "Version": "2012-10-17",
             "Statement": [
                 {
@@ -102,13 +108,13 @@ class Eks(pulumi.ComponentResource):
                 {
                     "Effect": "Allow",
                     "Principal": {
-                        "Federated": f"arn:aws:iam::{_args[0]}:oidc-provider/{_args[1]}",
+                        "Federated": f"arn:aws:iam::{args['account_id']}:oidc-provider/{args['oidc_issuer'].result}",
                     },
                     "Action": "sts:AssumeRoleWithWebIdentity",
                     "Condition": {
                         "StringEquals": {
-                            f"{_args[1]}:aud": "sts.amazonaws.com",
-                            f"{_args[1]}:sub": "system:serviceaccount:kube-system:ebs-csi-controller-sa",
+                            f"{args['oidc_issuer'].result}:aud": "sts.amazonaws.com",
+                            f"{args['oidc_issuer'].result}:sub": "system:serviceaccount:kube-system:ebs-csi-controller-sa",
                         },
                     },
                 },
@@ -119,32 +125,32 @@ class Eks(pulumi.ComponentResource):
         eks_nodes = aws.iam.Role(f"{name}-eks_nodes",
             name=f"{args['cluster_name']}-eks-node-group",
             assume_role_policy=assume_role_policy,
-            opts = pulumi.ResourceOptions(parent=self, provider=provider))
+            opts = pulumi.ResourceOptions(parent=self))
 
         amazon_ebscsi_driver_policy = aws.iam.RolePolicyAttachment(f"{name}-AmazonEBSCSIDriverPolicy",
             policy_arn="arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy",
             role=eks_nodes.name,
-            opts = pulumi.ResourceOptions(parent=self, provider=provider))
+            opts = pulumi.ResourceOptions(parent=self))
 
         amazon_eks_worker_node_policy = aws.iam.RolePolicyAttachment(f"{name}-AmazonEKSWorkerNodePolicy",
             policy_arn="arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
             role=eks_nodes.name,
-            opts = pulumi.ResourceOptions(parent=self, provider=provider))
+            opts = pulumi.ResourceOptions(parent=self))
 
         amazon_ekscni_policy = aws.iam.RolePolicyAttachment(f"{name}-AmazonEKS_CNI_Policy",
             policy_arn="arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
             role=eks_nodes.name,
-            opts = pulumi.ResourceOptions(parent=self, provider=provider))
+            opts = pulumi.ResourceOptions(parent=self))
 
         amazon_ec2_container_registry_read_only = aws.iam.RolePolicyAttachment(f"{name}-AmazonEC2ContainerRegistryReadOnly",
             policy_arn="arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
             role=eks_nodes.name,
-            opts = pulumi.ResourceOptions(parent=self, provider=provider))
+            opts = pulumi.ResourceOptions(parent=self))
 
         amazon_ssm_managed_instance_core = aws.iam.RolePolicyAttachment(f"{name}-AmazonSSMManagedInstanceCore",
             policy_arn="arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
             role=eks_nodes.name,
-            opts = pulumi.ResourceOptions(parent=self, provider=provider))
+            opts = pulumi.ResourceOptions(parent=self))
 
         autoscaling = aws.iam.Policy(f"{name}-autoscaling",
             name=f"{args['cluster_name']}-autoscaling",
@@ -165,12 +171,12 @@ class Eks(pulumi.ComponentResource):
                     "Resource": "*",
                 }],
             }),
-            opts = pulumi.ResourceOptions(parent=self, provider=provider))
+            opts = pulumi.ResourceOptions(parent=self))
 
         autoscaler = aws.iam.RolePolicyAttachment(f"{name}-autoscaler",
             policy_arn=autoscaling.arn,
             role=eks_nodes.name,
-            opts = pulumi.ResourceOptions(parent=self, provider=provider))
+            opts = pulumi.ResourceOptions(parent=self))
 
         amazon_eksefscsi_driver_policy = aws.iam.Policy(f"{name}-AmazonEKS_EFS_CSI_Driver_Policy",
             name=f"{args['cluster_name']}-efs-csi-driver-policy",
@@ -209,48 +215,38 @@ class Eks(pulumi.ComponentResource):
                     },
                 ],
             }),
-            opts = pulumi.ResourceOptions(parent=self, provider=provider))
+            opts = pulumi.ResourceOptions(parent=self))
 
         efs_driver_attachment = aws.iam.RolePolicyAttachment(f"{name}-efs-driver-attachment",
             policy_arn=amazon_eksefscsi_driver_policy.arn,
             role=eks_nodes.name,
-            opts = pulumi.ResourceOptions(parent=self, provider=provider))
+            opts = pulumi.ResourceOptions(parent=self))
 
-        oidc_issuer_url = main.identities[0].oidcs[0].issuer
-
-        # Fetch the TLS thumbprint (required for the OIDC provider)
-        tls_cert = aws.tls.get_certificate_output(url=oidc_issuer_url)
-
-        oidc_provider = aws.iam.OpenIdConnectProvider(f"{name}-oidc-provider",
-            client_id_lists=["sts.amazonaws.com"],
-            thumbprint_lists=[tls_cert.certificates[0].sha1_fingerprint],
-            url=oidc_issuer_url,
-        )
-
-        # Strip the "https://" to get the bare URL for the provider
-        self.oidc_provider_url = oidc_issuer_url.apply(lambda url: url.replace("https://", ""))
-        self.oidc_provider_arn = oidc_provider.arn
-
-        self.aws_iam_role_node_id = eks_nodes.id
-        self.aws_iam_role_node_arn = eks_nodes.arn
+        self.awsIamRoleNodeId = eks_nodes.id
+        self.awsIamRoleNodeArn = eks_nodes.arn
         self.eks_node_role = eks_nodes
         self.eks_cluster_role_name = main_cluster.name
-        self.eks_endpoint = main.endpoint
-        
+        self.eksEp = main.endpoint
+        self.policyAttachmentAmazonEKSWorkerNodePolicy = amazon_eks_worker_node_policy
+        self.policyAttachmentAmazonEKSCNIPolicy = amazon_ekscni_policy
+        self.policyAttachmentAmazonEC2ContainerRegistryReadOnly = amazon_ec2_container_registry_read_only
+        self.policyAttachmentAmazonSSMManagedInstanceCore = amazon_ssm_managed_instance_core
         self.status = main.status
-        self.cluster_id = main.id
+        self.clusterId = main.id
         self.cluster_name = main.name
         self.eks_security_group = eks_sg.id
         self.register_outputs({
-            'aws_iam_role_node_id': eks_nodes.id, 
-            'aws_iam_role_node_arn': eks_nodes.arn, 
+            'awsIamRoleNodeId': eks_nodes.id, 
+            'awsIamRoleNodeArn': eks_nodes.arn, 
             'eks_node_role': eks_nodes, 
             'eks_cluster_role_name': main_cluster.name, 
-            'eks_endpoint': main.endpoint, 
+            'eksEp': main.endpoint, 
+            'policyAttachmentAmazonEKSWorkerNodePolicy': amazon_eks_worker_node_policy, 
+            'policyAttachmentAmazonEKSCNIPolicy': amazon_ekscni_policy, 
+            'policyAttachmentAmazonEC2ContainerRegistryReadOnly': amazon_ec2_container_registry_read_only, 
+            'policyAttachmentAmazonSSMManagedInstanceCore': amazon_ssm_managed_instance_core, 
             'status': main.status, 
-            'cluster_id': main.id, 
+            'clusterId': main.id, 
             'cluster_name': main.name, 
-            'eks_security_group': eks_sg.id,
-            'oidc_provider_arn': self.oidc_provider_arn,
-            'oidc_provider_url': self.oidc_provider_url,
+            'eks_security_group': eks_sg.id
         })
