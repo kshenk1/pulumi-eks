@@ -105,6 +105,9 @@ if eks_max_nodes_per_nodegroup < eks_nodes_per_nodegroup and eks_nodes_per_nodeg
 if create_rds_instance == True and domain_name == None:
     die("The domain_name cannot be blank when create_rds_instance is true")
 
+if create_alb_controller and not create_eks_cluster:
+    die("create_eks_cluster must be true if create_alb_controller is true")
+
 available = aws.get_availability_zones_output()
 
 aws_provider = aws.Provider("aws-provider",
@@ -195,7 +198,7 @@ if create_eks_cluster:
         'memory_min': eks_instance_min_mem, 
         'vcpu_min': eks_instance_min_vcpu, 
         'tags': common_tags,
-        'asg_schedule': asg_schedule if create_asg_schedule else {}
+        'asg_schedule': asg_schedule # if create_asg_schedule else {}
     })
 
     pulumi.export("eks_node_role_arn", eks.aws_iam_role_node_arn)
@@ -239,6 +242,8 @@ if create_efs_filesystem:
     pulumi.export("efs_mount_target", [__item.efs_mount_target for __item in efs])
     pulumi.export("efs_system_id", [__item.efs_file_system_id for __item in efs])
 
+## ALB Controller
+###################################################################################################
 if create_alb_controller:
     alb = LoadBalancer(k8s_provider, f"{resource_prefix}-alb-controller", {
         'cluster_name': eks.cluster_name,
