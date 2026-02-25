@@ -1,0 +1,17 @@
+{
+    "Comment": "Create wildcard alias for CloudBees CI",
+    "Changes": [
+        {
+            "Action": "UPSERT",
+            "ResourceRecordSet": {
+                "Name": "*.{{zone_name}}",
+                "Type": "A",
+                "AliasTarget": {
+                    "HostedZoneId": "{{alb_zone_id}}",
+                    "DNSName": "dualstack.{{alb_dns_name}}",
+                    "EvaluateTargetHealth": true
+                }
+            }
+        }
+    ]
+}

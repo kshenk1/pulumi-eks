@@ -1,2 +1,6 @@
 .venv/
 __pycache__/
+dns-update.json
+
+!ci-default-values.yaml.template
+*-values.yaml

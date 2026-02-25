@@ -13,29 +13,25 @@ def not_implemented(msg):
 class EksNodesEc2Args(TypedDict):
     cluster_name: Input[Any]
     private_subnet_ids: Input[Any]
-    policyAttachmentAmazonEKSWorkerNodePolicy: Input[Any]
-    policyAttachmentAmazonEKSCNIPolicy: Input[Any]
-    policyAttachmentAmazonEC2ContainerRegistryReadOnly: Input[Any]
-    policyAttachmentAmazonSSMManagedInstanceCore: Input[Any]
-    awsIamRoleNodeArn: Input[Any]
+    aws_iam_role_node_arn: Input[Any]
     nodegroup_name: Input[Any]
     sizeMin: Input[float]
     sizeMax: Input[float]
     sizeDesired: Input[float]
-    instanceTypes: Input[Any]
+    instance_types: Input[Any]
     memory_min: Input[Any]
     vcpu_min: Input[Any]
     tags: Input[Any]
-    asg_schedule: Input[dict]
+    asg_schedule: dict
 
 class EksNodesEc2(pulumi.ComponentResource):
-    def __init__(self, name: str, args: EksNodesEc2Args, opts: Optional[pulumi.ResourceOptions] = None):
+    def __init__(self, provider: aws.Provider, name: str, args: EksNodesEc2Args, opts: Optional[pulumi.ResourceOptions] = None):
         super().__init__("components:index:EksNodesEc2", name, args, opts)
 
         node_template = aws.ec2.LaunchTemplate(f"{name}-node-template",
             name=f"{args['cluster_name']}-nodes",
             instance_requirements={
-                "allowed_instance_types": args["instanceTypes"],
+                "allowed_instance_types": args["instance_types"],
                 "instance_generations": ["current"],
                 "memory_mib": {
                     "min": args["memory_min"],
@@ -55,16 +51,16 @@ class EksNodesEc2(pulumi.ComponentResource):
                     "Name": f"{args['cluster_name']}-node"
                 },
             }],
-            opts=pulumi.ResourceOptions(parent=self))
+            opts=pulumi.ResourceOptions(parent=self, provider=provider))
 
         node = []
-        for _range in [{"value": i} for i in range(0, len(args["private_subnet_ids"]))]:
-            ng = aws.eks.NodeGroup(f"{name}-node-{_range['value']}",
+        for i in range(len(args["private_subnet_ids"])):
+            ng = aws.eks.NodeGroup(f"{name}-node-{i}",
                 cluster_name=args["cluster_name"],
-                node_group_name=f"{args['cluster_name']}-{args['nodegroup_name']}-{_range['value']}",
-                node_role_arn=args["awsIamRoleNodeArn"],
-                subnet_ids=[args["private_subnet_ids"][_range["value"]]],
-                instance_types=args["instanceTypes"],
+                node_group_name=f"{args['cluster_name']}-{args['nodegroup_name']}-{i}",
+                node_role_arn=args["aws_iam_role_node_arn"],
+                subnet_ids=[args["private_subnet_ids"][i]],
+                instance_types=args["instance_types"],
                 ami_type="AL2023_x86_64_STANDARD",
                 launch_template={
                     "id": node_template.id,
@@ -76,58 +72,62 @@ class EksNodesEc2(pulumi.ComponentResource):
                     "min_size": args["sizeMin"],
                 },
                 tags={
-                    **args["tags"],
                     "k8s.io/cluster-autoscaler/enabled": "true",
                     f"k8s.io/cluster-autoscaler/{args['cluster_name']}": "owned",
                     f"k8s.io/cluster/{args['cluster_name']}": "owned",
                 },
-                opts=pulumi.ResourceOptions(parent=self))
+                opts=pulumi.ResourceOptions(parent=self, provider=provider))
             node.append(ng)
 
             # Tag the underlying ASG with all tags
             for key, val in args["tags"].items():
                 aws.autoscaling.Tag(
-                    f"{name}-asg-tag-{_range['value']}-{key}",
-                    autoscaling_group_name=ng.resources.apply(
-                        lambda r: r[0].autoscaling_groups[0].name
+                    f"{name}-asg-tag-{i}-{key}",
+                    autoscaling_group_name=ng.resources[0].apply(
+                        lambda r: r.autoscaling_groups[0].name
                     ),
                     tag={
                         "key": key,
                         "value": val,
                         "propagate_at_launch": True,
                     },
-                    opts=pulumi.ResourceOptions(parent=ng),
+                    opts=pulumi.ResourceOptions(parent=ng, provider=provider),
                 )
 
             # Apply schedules to the ASG if all required schedule keys are present
-            asg_schedule = args.get("asg_schedule") or {}
+            asg_schedule = args["asg_schedule"]
             required_schedule_keys = ["weekday_config_down", "weekday_config_up", "weekend_config", "timezone"]
             if asg_schedule and all(k in asg_schedule for k in required_schedule_keys):
-                Scheduling(f"scheduling-{_range['value']}", {
+                Scheduling(provider, f"scheduling-{i}", {
                     'autoscaling_group_name': ng.resources.apply(
-                        lambda r: r[0].autoscaling_groups[0].name
+                        lambda r: str(r[0].autoscaling_groups[0].name)
+                        if r and r[0].autoscaling_groups else ""
                     ),
+                    'scheduled_action_name': f"schedule-{i}",
                     'weekday_config_down': asg_schedule["weekday_config_down"],
                     'weekday_config_up': asg_schedule["weekday_config_up"],
                     'weekend_config': asg_schedule["weekend_config"],
-                    'timezone': asg_schedule["timezone"]
-                },
-                    opts=pulumi.ResourceOptions(parent=ng)
+                    'timezone': asg_schedule["timezone"]},
+                    opts=pulumi.ResourceOptions(parent=ng, provider=provider)
                 )
+                
 
         asg_names = pulumi.Output.all(*[ng.resources for ng in node]).apply(
             lambda resources_list: [
-                asg.name
-                for r in resources_list if r
-                for asg in r.autoscaling_groups
+                asg["name"]
+                for node_resources in resources_list
+                for r in (node_resources or [])
+                for asg in (r.get("autoscalingGroups") or [])
+                if asg.get("name")
             ]
         )
+
         self.eks_nodegroup_asgs = asg_names
         self.eks_nodegroup_arns = [__item.arn for __item in node]
         self.eks_nodegroup_ids = [__item.id for __item in node]
 
         self.register_outputs({
-            'eks_nodegroup_arns': [__item.arn for __item in node], 
-            'eks_nodegroup_ids': [__item.id for __item in node], 
-            'eks_nodegroup_asgs': asg_names
+            'eks_nodegroup_arns': self.eks_nodegroup_arns, 
+            'eks_nodegroup_ids': self.eks_nodegroup_ids, 
+            'eks_nodegroup_asgs': self.eks_nodegroup_asgs
         })

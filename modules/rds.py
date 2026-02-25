@@ -21,14 +21,14 @@ class RdsArgs(TypedDict, total=False):
     internal_domain: Input[str]
 
 class Rds(pulumi.ComponentResource):
-    def __init__(self, name: str, args: RdsArgs, opts:Optional[pulumi.ResourceOptions] = None):
+    def __init__(self, provider: aws.Provider, name: str, args: RdsArgs, opts:Optional[pulumi.ResourceOptions] = None):
         super().__init__("components:index:Rds", name, args, opts)
 
         default_sg = aws.rds.SubnetGroup(f"{name}-default-db",
             name=f"{args['rds_instance_identifier']}-subnet-group",
             description="Terraform RDS subnet group",
             subnet_ids=args["private_subnet_ids"],
-            opts = pulumi.ResourceOptions(parent=self)
+            opts = pulumi.ResourceOptions(parent=self, provider=provider)
         )
 
         rds_sg = aws.ec2.SecurityGroup(f"{name}-rds",
@@ -38,7 +38,7 @@ class Rds(pulumi.ComponentResource):
             tags={
                 "Name": f"{args['rds_instance_identifier']}-rds-security-group",
             },
-            opts = pulumi.ResourceOptions(parent=self)
+            opts = pulumi.ResourceOptions(parent=self, provider=provider)
         )
 
         rds_ingress = aws.ec2.SecurityGroupRule(f"{name}-rds-ingress",
@@ -48,7 +48,7 @@ class Rds(pulumi.ComponentResource):
             protocol=aws.ec2.ProtocolType.TCP,
             cidr_blocks=[args["vpc_cidr_block"]],
             security_group_id=rds_sg.id,
-            opts = pulumi.ResourceOptions(parent=self)
+            opts = pulumi.ResourceOptions(parent=self, provider=provider)
         )
 
         nfs_egress_efs = aws.ec2.SecurityGroupRule(f"{name}-nfs-egress-efs",
@@ -58,7 +58,7 @@ class Rds(pulumi.ComponentResource):
             protocol="-1",
             cidr_blocks=["0.0.0.0/0"],
             security_group_id=rds_sg.id,
-            opts = pulumi.ResourceOptions(parent=self)
+            opts = pulumi.ResourceOptions(parent=self, provider=provider)
         )
 
         default_parameter_group = aws.rds.ParameterGroup(f"{name}-default",
@@ -75,13 +75,13 @@ class Rds(pulumi.ComponentResource):
                     "value": "utf8",
                 },
             ],
-            opts = pulumi.ResourceOptions(parent=self)
+            opts = pulumi.ResourceOptions(parent=self, provider=provider)
         )
 
         db_pw = random.RandomPassword(f"{name}-db",
             length=32,
             special=False,
-            opts = pulumi.ResourceOptions(parent=self)
+            opts = pulumi.ResourceOptions(parent=self, provider=provider)
         )
 
         default_instance = aws.rds.Instance(f"{name}-default",
@@ -99,7 +99,7 @@ class Rds(pulumi.ComponentResource):
             skip_final_snapshot=True,
             final_snapshot_identifier="Ignore",
             parameter_group_name=default_parameter_group.name,
-            opts = pulumi.ResourceOptions(parent=self)
+            opts = pulumi.ResourceOptions(parent=self, provider=provider)
         )
 
         # Create a private hosted zone associated with the VPC
@@ -109,6 +109,7 @@ class Rds(pulumi.ComponentResource):
                 "vpc_id": args["vpc_id"],
             }],
             comment="Private zone for RDS endpoints",
+            opts = pulumi.ResourceOptions(parent=self, provider=provider)
         )
 
         rds_record = aws.route53.Record(f"{name}-rds",
@@ -118,7 +119,7 @@ class Rds(pulumi.ComponentResource):
             ttl=300,
             records=[std.trimsuffix_output(input=default_instance.endpoint,
                 suffix=f":{args['db_port']}").apply(lambda invoke: invoke.result)],
-            opts = pulumi.ResourceOptions(parent=self)
+            opts = pulumi.ResourceOptions(parent=self, provider=provider)
         )
 
         self.name = default_instance.db_name

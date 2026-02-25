@@ -1,0 +1,21 @@
+environment:
+  - pulumi-eks/cbci
+config:
+  aws:region: 'us-east-1'
+  pulumi-eks:create_asg_schedule: "false"
+  pulumi-eks:create_alb_controller: "true"
+  pulumi-eks:create_efs_filesystem: "true"
+  pulumi-eks:create_eks_cluster: "true"
+  pulumi-eks:create_r53_zone: "true"
+  pulumi-eks:route53_wait_for_validation: "true"
+  pulumi-eks:create_rds_instance: "false"
+  pulumi-eks:eks_nodes_per_nodegroup: "3"
+  pulumi-eks:internal_domain: pulumi-eks.internal
+  pulumi-eks:kubernetes_version: "1.35"
+  pulumi-eks:private_subnet_count: "2"
+  pulumi-eks:public_subnet_count: "2"
+  pulumi-eks:resource_prefix: ks-cbci-01
+  pulumi-eks:subnet_cidr_prefix: "172.31"
+  pulumi-eks:vpc_cidr_block: 172.31.0.0/16
+  pulumi-eks:zone_name: ng.aws.kshenk.ps.beescloud.com
+  pulumi-eks:myip: 71.60.6.47/32

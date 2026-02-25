@@ -14,11 +14,11 @@ class VpcArgs(TypedDict):
     resource_prefix: str
 
 class Vpc(pulumi.ComponentResource):
-    def __init__(self, name: str, args: VpcArgs, opts: Optional[pulumi.ResourceOptions] = None):
+    def __init__(self, provider: aws.Provider, name: str, args: VpcArgs, opts: Optional[pulumi.ResourceOptions] = None):
         super().__init__("components:index:Vpc", name, args, opts)
 
         resource_prefix = args["resource_prefix"]
-        child_opts = pulumi.ResourceOptions(parent=self)
+        child_opts = pulumi.ResourceOptions(parent=self, provider=provider)
 
         # VPC
         main = aws.ec2.Vpc(
@@ -40,7 +40,7 @@ class Vpc(pulumi.ComponentResource):
                 aws.ec2.Subnet(
                     f"{name}-private-sn-{i}",
                     availability_zone=args["availability_zones"][i],
-                    cidr_block=f"{args['subnet_cidr_prefix']}.{i}.0/24",
+                    cidr_block=f"{args['subnet_cidr_prefix']}.{int(i) * 16}.0/20",
                     vpc_id=main.id,
                     tags={
                         "Name": f"{resource_prefix}-private-sn-{i}",
@@ -54,11 +54,12 @@ class Vpc(pulumi.ComponentResource):
         # Public subnets
         public_sn = []
         for i in range(args["public_subnet_count"]):
+            _num = i + int(args["private_subnet_count"])
             public_sn.append(
                 aws.ec2.Subnet(
                     f"{name}-public-sn-{i}",
                     availability_zone=args["availability_zones"][i],
-                    cidr_block=f"{args['subnet_cidr_prefix']}.{args['private_subnet_count'] + i}.0/24",
+                    cidr_block=f"{args['subnet_cidr_prefix']}.{_num * 16}.0/20",
                     vpc_id=main.id,
                     map_public_ip_on_launch=True,
                     tags={
@@ -129,16 +130,16 @@ class Vpc(pulumi.ComponentResource):
             )
 
         # Outputs
-        self.vpcid = main.id
+        self.vpc_id = main.id
         self.public_subnet_ids = [sn.id for sn in public_sn]
         self.private_subnet_ids = [sn.id for sn in private_sn]
         self.vpc_cidr_block = main.cidr_block
         self.nat_public_ip = nat_cd_gw.public_ip
 
         self.register_outputs({
-            "vpcid": main.id,
-            "public_subnet_ids": [sn.id for sn in public_sn],
-            "private_subnet_ids": [sn.id for sn in private_sn],
-            "vpc_cidr_block": main.cidr_block,
-            "nat_public_ip": nat_cd_gw.public_ip,
+            "vpc_id": self.vpc_id,
+            "public_subnet_ids": self.public_subnet_ids,
+            "private_subnet_ids": self.private_subnet_ids,
+            "vpc_cidr_block": self.vpc_cidr_block,
+            "nat_public_ip": self.nat_public_ip,
         })

@@ -1,8 +1,10 @@
 pulumi-aws==6.66.0
 pulumi-command==1.0.1
+pulumi-kubernetes==4.26.0
 pulumi-null==0.0.3
 pulumi-random==4.16.0
-pulumi-std==1.6.2
+pulumi-std==2.3.2
+pulumi-tls==5.3.0
 pulumi>=3.0.0,<4.0.0
 pulumiverse_time==0.0.16
 setuptools<71
