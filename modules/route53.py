@@ -68,12 +68,12 @@ class Route53(pulumi.ComponentResource):
         else:
             pulumi.log.info("Skipping ACM certificate validation as 'wait_for_validation' is not true.")  
 
-        self.zone_id = child_zone.id
+        self.hosted_zone_id = child_zone.id
         self.certificate_arn = cert.arn
         self.nameservers = child_zone.name_servers
 
         self.register_outputs({
-            "zone_id": self.zone_id,
+            "hosted_zone_id": self.hosted_zone_id,
             "certificate_arn": self.certificate_arn,
             "nameservers": self.nameservers,
         })

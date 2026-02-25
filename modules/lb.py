@@ -42,14 +42,22 @@ class LoadBalancer(pulumi.ComponentResource):
         sa_name = "aws-load-balancer-controller"
         sa_namespace = "kube-system"
 
-        # 2. Attach the AWS-managed policy for the LB controller
-        aws.iam.RolePolicyAttachment(f"{name}-policy",
-            role=lb_controller_role.name,
-            policy_arn="arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess",
-            opts=pulumi.ResourceOptions(parent=self)
-        )
         # Note: In production, use the official fine-grained policy from
         # https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
+
+        with open("iam_policy.json") as f:
+            lb_policy_json = f.read()
+
+        alb_policy = aws.iam.Policy(f"{name}-alb-policy",
+            description="IAM policy for AWS Load Balancer Controller",
+            policy=lb_policy_json,
+            opts=pulumi.ResourceOptions(parent=self)
+        )
+        aws.iam.RolePolicyAttachment(f"{name}-alb-policy-attachment",
+            role=lb_controller_role.name,
+            policy_arn=alb_policy.arn,
+            opts=pulumi.ResourceOptions(parent=self)
+        )
 
         # 3. Kubernetes service account annotated with the role ARN
         lb_sa = k8s.core.v1.ServiceAccount(f"{name}-sa",

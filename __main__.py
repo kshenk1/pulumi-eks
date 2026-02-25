@@ -149,7 +149,7 @@ if create_r53_zone:
     })
 
     pulumi.export("zone_name", zone.zone_name)
-    pulumi.export("zone_id", zone.zone_id)
+    pulumi.export("hosted_zone_id", zone.hosted_zone_id)
     pulumi.export("certificate_arn", zone.certificate_arn)
     pulumi.export("nameservers", zone.nameservers)
 
@@ -216,20 +216,6 @@ if create_eks_cluster:
     pulumi.export("eks_nodegroup_ids", eks_nodes_ec2.eks_nodegroup_ids)
     pulumi.export("eks_nodegroup_arns", eks_nodes_ec2.eks_nodegroup_arns)
     pulumi.export("eks_nodegroup_asgs", eks_nodes_ec2.eks_nodegroup_asgs)
-
-    # create_kubeconfig = null.Resource("create_kubeconfig", triggers={
-    #     #"always_run": std.timestamp_output().apply(lambda invoke: invoke.result),
-    #     'cluster_name': eks.cluster_name,
-    #     'cluster_endpoint': eks.eks_endpoint,
-    # }, opts=pulumi.ResourceOptions(provider=k8s_provider, parent=eks))
-
-    # create_kubeconfig_provisioner0 = command.local.Command(
-    #     "create_kubeconfig_provisioner_0", 
-    #     create=eks.cluster_name.apply(
-    #         lambda cluster_name: f"aws eks update-kubeconfig --name {cluster_name} --alias {resource_prefix}"
-    #     ),
-    #     opts = pulumi.ResourceOptions(depends_on=[create_kubeconfig], provider=k8s_provider, parent=eks)
-    # )
 
 ## END: if create_eks_cluster
 ###################################################################################################
