@@ -5,7 +5,6 @@ import pulumi_aws as aws
 
 class VpcArgs(TypedDict):
     cidr_block: str
-    subnet_cidr_prefix: str
     public_subnet_count: int
     private_subnet_count: int
     enable_dns_hostnames: bool
@@ -19,6 +18,7 @@ class Vpc(pulumi.ComponentResource):
 
         resource_prefix = args["resource_prefix"]
         child_opts = pulumi.ResourceOptions(parent=self, provider=provider)
+        subnet_cidr_prefix = ".".join(args["cidr_block"].split(".")[:2])
 
         # VPC
         main = aws.ec2.Vpc(
@@ -40,7 +40,7 @@ class Vpc(pulumi.ComponentResource):
                 aws.ec2.Subnet(
                     f"{name}-private-sn-{i}",
                     availability_zone=args["availability_zones"][i],
-                    cidr_block=f"{args['subnet_cidr_prefix']}.{int(i) * 16}.0/20",
+                    cidr_block=f"{subnet_cidr_prefix}.{int(i) * 16}.0/20",
                     vpc_id=main.id,
                     tags={
                         "Name": f"{resource_prefix}-private-sn-{i}",
@@ -59,7 +59,7 @@ class Vpc(pulumi.ComponentResource):
                 aws.ec2.Subnet(
                     f"{name}-public-sn-{i}",
                     availability_zone=args["availability_zones"][i],
-                    cidr_block=f"{args['subnet_cidr_prefix']}.{_num * 16}.0/20",
+                    cidr_block=f"{subnet_cidr_prefix}.{_num * 16}.0/20",
                     vpc_id=main.id,
                     map_public_ip_on_launch=True,
                     tags={

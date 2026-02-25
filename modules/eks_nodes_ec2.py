@@ -25,8 +25,10 @@ class EksNodesEc2Args(TypedDict):
     asg_schedule: dict
 
 class EksNodesEc2(pulumi.ComponentResource):
-    def __init__(self, provider: aws.Provider, name: str, args: EksNodesEc2Args, opts: Optional[pulumi.ResourceOptions] = None):
+    def __init__(self, provider: aws.Provider, stepparent: object, name: str, args: EksNodesEc2Args, opts: Optional[pulumi.ResourceOptions] = None):
         super().__init__("components:index:EksNodesEc2", name, args, opts)
+
+        asgs_created = False
 
         node_template = aws.ec2.LaunchTemplate(f"{name}-node-template",
             name=f"{args['cluster_name']}-nodes",
@@ -76,7 +78,7 @@ class EksNodesEc2(pulumi.ComponentResource):
                     f"k8s.io/cluster-autoscaler/{args['cluster_name']}": "owned",
                     f"k8s.io/cluster/{args['cluster_name']}": "owned",
                 },
-                opts=pulumi.ResourceOptions(parent=self, provider=provider))
+                opts=pulumi.ResourceOptions(parent=self, provider=provider, depends_on=[stepparent]))
             node.append(ng)
 
             # Tag the underlying ASG with all tags
@@ -110,8 +112,12 @@ class EksNodesEc2(pulumi.ComponentResource):
                     'timezone': asg_schedule["timezone"]},
                     opts=pulumi.ResourceOptions(parent=ng, provider=provider)
                 )
+                asgs_created = True
                 
-
+        # This isn't working, I'm not sure why yet.
+        # This has been a pain from the start - trying to record the names of the autoscaling groups.
+        # Maybe it will start working on an upgrade... none-the-less, this was the safest way
+        # I could find to get the ASG names into the outputs without causing problems with the ASG creation.
         asg_names = pulumi.Output.all(*[ng.resources for ng in node]).apply(
             lambda resources_list: [
                 asg["name"]
@@ -122,6 +128,7 @@ class EksNodesEc2(pulumi.ComponentResource):
             ]
         )
 
+        self.asg_creation_info = "ASG schedules created" if asgs_created else "No ASG schedules created"
         self.eks_nodegroup_asgs = asg_names
         self.eks_nodegroup_arns = [__item.arn for __item in node]
         self.eks_nodegroup_ids = [__item.id for __item in node]
@@ -129,5 +136,6 @@ class EksNodesEc2(pulumi.ComponentResource):
         self.register_outputs({
             'eks_nodegroup_arns': self.eks_nodegroup_arns, 
             'eks_nodegroup_ids': self.eks_nodegroup_ids, 
-            'eks_nodegroup_asgs': self.eks_nodegroup_asgs
+            'eks_nodegroup_asgs': self.eks_nodegroup_asgs,
+            'asg_creation_info': self.asg_creation_info,
         })
