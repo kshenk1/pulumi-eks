@@ -15,7 +15,7 @@ class Scheduling(pulumi.ComponentResource):
         super().__init__("components:index:Scheduling", name, args, opts)
 
         eks_nodes_up_morning = aws.autoscaling.Schedule(f"{name}-eks-nodes-up-morning",
-            scheduled_action_name=f"{args['autoscaling_group_name']}-up",
+            scheduled_action_name=args["autoscaling_group_name"].apply(lambda n: f"{n}-up"),
             min_size=args["weekday_config_up"]["min"],
             max_size=args["weekday_config_up"]["max"],
             desired_capacity=args["weekday_config_up"]["desired"],
@@ -25,7 +25,7 @@ class Scheduling(pulumi.ComponentResource):
             opts = pulumi.ResourceOptions(parent=self, provider=provider))
 
         eks_nodes_down_evening = aws.autoscaling.Schedule(f"{name}-eks-nodes-down-evening",
-            scheduled_action_name=f"{args['autoscaling_group_name']}-down",
+            scheduled_action_name=args["autoscaling_group_name"].apply(lambda n: f"{n}-down"),
             min_size=args["weekday_config_down"]["min"],
             max_size=args["weekday_config_down"]["max"],
             desired_capacity=args["weekday_config_down"]["desired"],
@@ -35,7 +35,7 @@ class Scheduling(pulumi.ComponentResource):
             opts = pulumi.ResourceOptions(parent=self, provider=provider))
 
         eks_nodes_down_weekend = aws.autoscaling.Schedule(f"{name}-eks-nodes-down-weekend",
-            scheduled_action_name=f"{args['autoscaling_group_name']}-weekend",
+            scheduled_action_name=args["autoscaling_group_name"].apply(lambda n: f"{n}-weekend"),
             min_size=args["weekend_config"]["min"],
             max_size=args["weekend_config"]["max"],
             desired_capacity=args["weekend_config"]["desired"],

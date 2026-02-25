@@ -7,9 +7,10 @@ from modules.rds import Rds
 from modules.vpc import Vpc
 from modules.route53 import Route53
 from modules.lb import LoadBalancer
+from modules.eks_addons import EfsAddon
 import pulumi_aws as aws
-import pulumi_command as command
-import pulumi_null as null
+# import pulumi_command as command
+# import pulumi_null as null
 import pulumi_std as std
 import pulumi_kubernetes as k8s
 
@@ -88,6 +89,8 @@ cluster_enable_public_access = config.get_bool("cluster_enable_public_access")
 cluster_access_cidrs = [config.get("myip")]
 
 asg_schedule = config.get_object("asg_schedule")
+if create_asg_schedule is not True:
+    pulumi.info("AutoScaling Group Schedules not enabled")
 
 # The domain name of the hosted zone to use with infra created in here. 
 # If you are NOT creating an RDS instance, any value will do here for now. 
@@ -162,10 +165,11 @@ if create_eks_cluster:
         'private_subnet_ids': vpc.private_subnet_ids, 
         'enable_private_access': cluster_enable_private_access, 
         'enable_public_access': cluster_enable_public_access, 
+        'storage_class_name': "efs-sc-1000",
         'public_access_cidrs': std.concat_output(input=[
             cluster_access_cidrs,
             [vpc.nat_public_ip.apply(lambda nat_public_ip: f"{nat_public_ip}/32")],
-        ]).apply(lambda invoke: invoke.result)
+        ]).apply(lambda invoke: [cidr for cidr in invoke.result if cidr is not None])
     })
 
     k8s_provider = k8s.Provider(f"{resource_prefix}-k8s-provider",
@@ -184,6 +188,7 @@ if create_eks_cluster:
                 "args": ["eks", "get-token", "--cluster-name", args[2]],
             }}}],
         })),
+        opts=pulumi.ResourceOptions(parent=eks)
     )
 
     eks_nodes_ec2 = EksNodesEc2(aws_provider, f"{resource_prefix}-eks-nodes", {
@@ -198,7 +203,7 @@ if create_eks_cluster:
         'memory_min': eks_instance_min_mem, 
         'vcpu_min': eks_instance_min_vcpu, 
         'tags': common_tags,
-        'asg_schedule': asg_schedule # if create_asg_schedule else {}
+        'asg_schedule': asg_schedule if create_asg_schedule else {}
     })
 
     pulumi.export("eks_node_role_arn", eks.aws_iam_role_node_arn)
@@ -212,17 +217,19 @@ if create_eks_cluster:
     pulumi.export("eks_nodegroup_arns", eks_nodes_ec2.eks_nodegroup_arns)
     pulumi.export("eks_nodegroup_asgs", eks_nodes_ec2.eks_nodegroup_asgs)
 
-    create_kubeconfig = null.Resource("create_kubeconfig", triggers={
-        "always_run": std.timestamp_output().apply(lambda invoke: invoke.result),
-    })
+    # create_kubeconfig = null.Resource("create_kubeconfig", triggers={
+    #     #"always_run": std.timestamp_output().apply(lambda invoke: invoke.result),
+    #     'cluster_name': eks.cluster_name,
+    #     'cluster_endpoint': eks.eks_endpoint,
+    # }, opts=pulumi.ResourceOptions(provider=k8s_provider, parent=eks))
 
-    create_kubeconfig_provisioner0 = command.local.Command(
-        "createKubeconfigProvisioner0", 
-        create=eks.cluster_name.apply(
-            lambda cluster_name: f"aws eks update-kubeconfig --name {cluster_name} --alias {resource_prefix}"
-        ),
-        opts = pulumi.ResourceOptions(depends_on=[create_kubeconfig])
-    )
+    # create_kubeconfig_provisioner0 = command.local.Command(
+    #     "create_kubeconfig_provisioner_0", 
+    #     create=eks.cluster_name.apply(
+    #         lambda cluster_name: f"aws eks update-kubeconfig --name {cluster_name} --alias {resource_prefix}"
+    #     ),
+    #     opts = pulumi.ResourceOptions(depends_on=[create_kubeconfig], provider=k8s_provider, parent=eks)
+    # )
 
 ## END: if create_eks_cluster
 ###################################################################################################
@@ -235,17 +242,26 @@ if create_efs_filesystem:
         'private_subnet_ids': vpc.private_subnet_ids, 
         'resource_prefix': resource_prefix, 
         'vpc_id': vpc.vpc_id, 
-        'vpc_cidr': vpc_cidr_block
+        'vpc_cidr': vpc_cidr_block,
         }
     ))
 
     pulumi.export("efs_mount_target", [__item.efs_mount_target for __item in efs])
     pulumi.export("efs_system_id", [__item.efs_file_system_id for __item in efs])
 
+    if create_eks_cluster:
+        efs_addon = EfsAddon(k8s_provider, eks, f"{resource_prefix}-efs-addon", {
+            'cluster_name': eks.cluster_name, 
+            'oidc_provider_arn': eks.oidc_provider_arn, 
+            'oidc_provider_url': eks.oidc_provider_url,
+            'storage_class_name': "efs-sc-1000",
+            'efs_filesystem_id': efs[0].efs_file_system_id
+        })
+
 ## ALB Controller
 ###################################################################################################
 if create_alb_controller:
-    alb = LoadBalancer(k8s_provider, f"{resource_prefix}-alb-controller", {
+    alb = LoadBalancer(k8s_provider, eks, f"{resource_prefix}-alb-controller", {
         'cluster_name': eks.cluster_name,
         'resource_prefix': resource_prefix,
         'oidc_provider_arn': eks.oidc_provider_arn,

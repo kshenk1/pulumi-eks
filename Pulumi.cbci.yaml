@@ -2,12 +2,12 @@ environment:
   - pulumi-eks/cbci
 config:
   aws:region: 'us-east-1'
-  pulumi-eks:create_asg_schedule: "true"
+  pulumi-eks:create_asg_schedule: "false"
   pulumi-eks:create_alb_controller: "true"
   pulumi-eks:create_efs_filesystem: "true"
   pulumi-eks:create_eks_cluster: "true"
   pulumi-eks:create_r53_zone: "true"
-  pulumi-eks:route53_wait_for_validation: "false"
+  pulumi-eks:route53_wait_for_validation: "true"
   pulumi-eks:create_rds_instance: "false"
   pulumi-eks:eks_nodes_per_nodegroup: "3"
   pulumi-eks:internal_domain: pulumi-eks.internal

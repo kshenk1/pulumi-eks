@@ -2,20 +2,22 @@ import pulumi
 from pulumi import Input
 from typing import Optional, Dict, TypedDict, Any
 import json
+import pulumi_null as null
+import pulumi_command as command
 import pulumi_aws as aws
 import pulumi_std as std
 import pulumi_tls as tls
 
 class EksArgs(TypedDict):
-    cluster_name: Input[Any]
-    k8s_version: Input[Any]
-    k8s_upgrade_policy: Input[Any]
-    vpc_id: Input[Any]
-    private_subnet_ids: Input[Any]
-    vpc_cidr: Input[Any]
-    enable_private_access: Input[Any]
-    enable_public_access: Input[Any]
-    public_access_cidrs: Input[Any]
+    cluster_name: Input[str]
+    k8s_version: Input[str]
+    k8s_upgrade_policy: Input[str]
+    vpc_id: Input[str]
+    private_subnet_ids: Input[list]
+    vpc_cidr: Input[str]
+    enable_private_access: Input[bool]
+    enable_public_access: Input[bool]
+    public_access_cidrs: Input[list]
 
 class Eks(pulumi.ComponentResource):
     def __init__(self, provider: aws.Provider, name: str, args: EksArgs, opts:Optional[pulumi.ResourceOptions] = None):
@@ -230,6 +232,21 @@ class Eks(pulumi.ComponentResource):
             client_id_lists=["sts.amazonaws.com"],
             thumbprint_lists=[tls_cert.certificates[0].sha1_fingerprint],
             url=oidc_issuer_url,
+            opts = pulumi.ResourceOptions(parent=self)
+        )
+
+        create_kubeconfig = null.Resource("create_kubeconfig", triggers={
+            #"always_run": std.timestamp_output().apply(lambda invoke: invoke.result),
+            'cluster_name': main.name,
+            'cluster_endpoint': main.endpoint,
+        }, opts=pulumi.ResourceOptions(provider=provider, parent=self, depends_on=[main]))
+
+        create_kubeconfig_provisioner0 = command.local.Command(
+            "create_kubeconfig_provisioner_0", 
+            create=main.name.apply(
+                lambda cluster_name: f"aws eks update-kubeconfig --name {cluster_name} --alias {args['cluster_name']} --region {aws.config.region}"
+            ),
+            opts = pulumi.ResourceOptions(depends_on=[create_kubeconfig], provider=provider, parent=self)
         )
 
         # Strip the "https://" to get the bare URL for the provider
@@ -247,7 +264,7 @@ class Eks(pulumi.ComponentResource):
         self.cluster_id = main.id
         self.cluster_name = main.name
         self.eks_security_group = eks_sg.id
-        
+
         self.register_outputs({
             'aws_iam_role_node_id': eks_nodes.id, 
             'aws_iam_role_node_arn': eks_nodes.arn, 

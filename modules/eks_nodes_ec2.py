@@ -94,13 +94,10 @@ class EksNodesEc2(pulumi.ComponentResource):
                     opts=pulumi.ResourceOptions(parent=ng, provider=provider),
                 )
 
-            #node_group_name = ng.node_group_name.apply(lambda ngn: ngn if ngn else f"{args['cluster_name']}-{args['nodegroup_name']}-{i}")
-
             # Apply schedules to the ASG if all required schedule keys are present
             asg_schedule = args["asg_schedule"]
             required_schedule_keys = ["weekday_config_down", "weekday_config_up", "weekend_config", "timezone"]
-            if asg_schedule: # and all(k in asg_schedule for k in required_schedule_keys):
-                pulumi.log.info(f"Applying ASG schedule to node group")
+            if asg_schedule and all(k in asg_schedule for k in required_schedule_keys):
                 Scheduling(provider, f"scheduling-{i}", {
                     'autoscaling_group_name': ng.resources.apply(
                         lambda r: str(r[0].autoscaling_groups[0].name)
@@ -110,30 +107,11 @@ class EksNodesEc2(pulumi.ComponentResource):
                     'weekday_config_down': asg_schedule["weekday_config_down"],
                     'weekday_config_up': asg_schedule["weekday_config_up"],
                     'weekend_config': asg_schedule["weekend_config"],
-                    'timezone': asg_schedule["timezone"]
-                },
+                    'timezone': asg_schedule["timezone"]},
                     opts=pulumi.ResourceOptions(parent=ng, provider=provider)
                 )
-            else:
-                pulumi.log.info(f"No valid ASG schedule found for node group. Skipping ASG scheduling.")
+                
 
-        # asg_names = pulumi.Output.all(*[ng.resources for ng in node]).apply(
-        #     lambda resources_list: [
-        #         asg.name
-        #         for r in resources_list if r
-        #         for asg in r.autoscaling_groups
-        #     ]
-        # )
-
-        # asg_names = pulumi.Output.all(*[ng.resources for ng in node]).apply(
-        #     lambda resources_list: [
-        #         asg.name
-        #         for node_resources in resources_list if node_resources
-        #         for r in node_resources if r
-        #         for asg in r.autoscaling_groups
-        #     ]
-        # )
-        # asg_names = []
         asg_names = pulumi.Output.all(*[ng.resources for ng in node]).apply(
             lambda resources_list: [
                 asg["name"]
