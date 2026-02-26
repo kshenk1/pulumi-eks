@@ -32,14 +32,10 @@ storage_mount_options           = config.require_object("storage_mount_options")
 pulumi.export("resource_prefix", resource_prefix)
 
 # The number of PUBLIC subnets to create
-public_subnet_count = config.get_int("public_subnet_count")
-if public_subnet_count is None:
-    public_subnet_count = 2
+public_subnet_count = config.get_int("public_subnet_count") or 2
 
 # The number of PRIVATE subnets to create. This also current dictates the number of node-groups created for the cluster - 1 per private subnet.
-private_subnet_count = config.get_int("private_subnet_count")
-if private_subnet_count is None:
-    private_subnet_count = 1
+private_subnet_count = config.get_int("private_subnet_count") or 2
 
 common_tags = config.get_object("common_tags")
 if common_tags is None:
@@ -51,9 +47,7 @@ if common_tags is None:
         "cb-user": "kshenk",
     }
 
-kubernetes_upgrade_policy = config.get("kubernetes_upgrade_policy")
-if kubernetes_upgrade_policy is None:
-    kubernetes_upgrade_policy = "STANDARD"
+kubernetes_upgrade_policy = config.get("kubernetes_upgrade_policy") or "STANDARD"
 
 eks_instance_min_vcpu = config.get_int("eks_instance_min_vcpu") or 1
 
@@ -92,6 +86,7 @@ if create_alb_controller and not create_eks_cluster:
 
 available = aws.get_availability_zones_output()
 
+# Passing the provider to each resource adopts the tags
 aws_provider = aws.Provider("aws-provider",
     default_tags=aws.ProviderDefaultTagsArgs(
         tags=common_tags
