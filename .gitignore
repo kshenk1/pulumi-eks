@@ -1,6 +1,12 @@
 .venv/
 __pycache__/
-dns-update.json
+support/dns-update.json
 
-!ci-default-values.yaml.template
-*-values.yaml
+# helm values
+!support/ci-example-values.yaml
+support/*-values.yaml
+
+# pulumi values
+!Pulumi.cbci.yaml
+Pulumi.*.yaml
+

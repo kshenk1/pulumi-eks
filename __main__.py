@@ -3,7 +3,6 @@ import json
 from modules.efs import Efs
 from modules.eks import Eks
 from modules.eks_nodes_ec2 import EksNodesEc2
-from modules.rds import Rds
 from modules.vpc import Vpc
 from modules.route53 import Route53
 from modules.lb import LoadBalancer
@@ -24,10 +23,10 @@ config = pulumi.Config()
 ###################################################################################################
 resource_prefix                 = config.require("resource_prefix")
 vpc_cidr_block                  = config.require("vpc_cidr_block")
-subnet_cidr_prefix              = config.require("subnet_cidr_prefix")
 kubernetes_version              = config.require("kubernetes_version")
 eks_node_group_instance_types   = config.require_object("eks_node_group_instance_types")
 zone_name                       = config.require("zone_name")
+storage_class_name              = config.require("storage_class_name")
 
 pulumi.export("resource_prefix", resource_prefix)
 
@@ -77,7 +76,6 @@ if eks_max_nodes_per_nodegroup is None:
 create_alb_controller = config.get_bool("create_alb_controller") or False
 create_eks_cluster = config.get_bool("create_eks_cluster") or False
 create_efs_filesystem = config.get_bool("create_efs_filesystem") or False
-create_rds_instance = config.get_bool("create_rds_instance") or False
 create_asg_schedule = config.get_bool("create_asg_schedule") or False
 create_r53_zone = config.get_bool("create_r53_zone") or False
 route53_wait_for_validation = config.get_bool("route53_wait_for_validation") or False
@@ -92,21 +90,8 @@ asg_schedule = config.get_object("asg_schedule")
 if create_asg_schedule is not True:
     pulumi.info("AutoScaling Group Schedules not enabled")
 
-# The domain name of the hosted zone to use with infra created in here. 
-# If you are NOT creating an RDS instance, any value will do here for now. 
-# This is required when creating the RDS instance (create-rds-instance=true)
-domain_name = config.get("domain_name")
-
-internal_domain = config.get("internal_domain")
-
-if create_rds_instance and not internal_domain:
-    die("internal_domain must be set when create_rds_instance is true")
-
 if eks_max_nodes_per_nodegroup < eks_nodes_per_nodegroup and eks_nodes_per_nodegroup > 0:
     die("eks_max_nodes_per_nodegroup must be greater than eks_nodes_per_nodegroup!")
-
-if create_rds_instance == True and domain_name == None:
-    die("The domain_name cannot be blank when create_rds_instance is true")
 
 if create_alb_controller and not create_eks_cluster:
     die("create_eks_cluster must be true if create_alb_controller is true")
@@ -131,8 +116,7 @@ vpc = Vpc(aws_provider, f"{resource_prefix}-vpc", {
     'private_subnet_count': private_subnet_count, 
     'cidr_block': vpc_cidr_block, 
     'enable_dns_support': config.get_bool("enable_dns_support") or True, 
-    'enable_dns_hostnames': config.get_bool("enable_dns_host_name") or True, 
-    'subnet_cidr_prefix': subnet_cidr_prefix
+    'enable_dns_hostnames': config.get_bool("enable_dns_host_name") or True
 })
 
 pulumi.export("vpc_id", vpc.vpc_id)
@@ -156,7 +140,7 @@ if create_r53_zone:
 ## EKS Cluster
 ###################################################################################################
 if create_eks_cluster:
-    eks = Eks(aws_provider, f"{resource_prefix}-eks", {
+    eks = Eks(aws_provider, vpc, f"{resource_prefix}-eks", {
         'cluster_name': resource_prefix, 
         'k8s_version': kubernetes_version, 
         'k8s_upgrade_policy': kubernetes_upgrade_policy, 
@@ -165,7 +149,7 @@ if create_eks_cluster:
         'private_subnet_ids': vpc.private_subnet_ids, 
         'enable_private_access': cluster_enable_private_access, 
         'enable_public_access': cluster_enable_public_access, 
-        'storage_class_name': "efs-sc-1000",
+        'storage_class_name': storage_class_name,
         'public_access_cidrs': std.concat_output(input=[
             cluster_access_cidrs,
             [vpc.nat_public_ip.apply(lambda nat_public_ip: f"{nat_public_ip}/32")],
@@ -191,7 +175,7 @@ if create_eks_cluster:
         opts=pulumi.ResourceOptions(parent=eks)
     )
 
-    eks_nodes_ec2 = EksNodesEc2(aws_provider, f"{resource_prefix}-eks-nodes", {
+    eks_nodes_ec2 = EksNodesEc2(aws_provider, eks, vpc, f"{resource_prefix}-eks-nodes", {
         'cluster_name': resource_prefix, 
         'aws_iam_role_node_arn': eks.aws_iam_role_node_arn, 
         'nodegroup_name': "ng", 
@@ -206,12 +190,14 @@ if create_eks_cluster:
         'asg_schedule': asg_schedule if create_asg_schedule else {}
     })
 
+    pulumi.export("asg_creation_info", eks_nodes_ec2.asg_creation_info)
     pulumi.export("eks_node_role_arn", eks.aws_iam_role_node_arn)
     pulumi.export("eks_cluster_role_name", eks.eks_cluster_role_name)
     pulumi.export("eks_cluster_name", eks.cluster_name)
     pulumi.export("eks_cluster_id", eks.cluster_id)
     pulumi.export("eks_cluster_status", eks.status)
     pulumi.export("eks_cluster_endpoint", eks.eks_endpoint)
+    pulumi.export("storage_class_name", storage_class_name)
 
     pulumi.export("eks_nodegroup_ids", eks_nodes_ec2.eks_nodegroup_ids)
     pulumi.export("eks_nodegroup_arns", eks_nodes_ec2.eks_nodegroup_arns)
@@ -236,7 +222,7 @@ if create_efs_filesystem:
     pulumi.export("efs_system_id", [__item.efs_file_system_id for __item in efs])
 
     if create_eks_cluster:
-        efs_addon = EfsAddon(k8s_provider, eks, f"{resource_prefix}-efs-addon", {
+        efs_addon = EfsAddon(k8s_provider, eks_nodes_ec2, f"{resource_prefix}-efs-addon", {
             'cluster_name': eks.cluster_name, 
             'oidc_provider_arn': eks.oidc_provider_arn, 
             'oidc_provider_url': eks.oidc_provider_url,
@@ -256,41 +242,4 @@ if create_alb_controller:
 
     pulumi.export("alb_controller_sa_name", alb.service_account_name)
     pulumi.export("alb_controller_role_arn", alb.lb_controller_role_arn)
-
-## RDS
-###################################################################################################
-if create_rds_instance:
-    db_mysql = config.get_object("db_mysql")
-    if db_mysql is None:
-        db_mysql = {
-            "allocated_storage": 25,
-            "database_name": "thedb",
-            "database_user": "theuser",
-            "db_port": 3306,
-            "engine": "mysql",
-            "engine_version": "8.0.33",
-            "instance_class": "db.m5d.large",
-        }
-    rds = Rds(aws_provider, f"{resource_prefix}-rds", {
-        'database_name': db_mysql["database_name"], 
-        'engine': db_mysql["engine"], 
-        'engine_version': db_mysql["engine_version"], 
-        'db_port': db_mysql["db_port"], 
-        'database_user': db_mysql["database_user"], 
-        'instance_class': db_mysql["instance_class"], 
-        'allocated_storage': db_mysql["allocated_storage"], 
-        'rds_instance_identifier': resource_prefix, 
-        'vpc_cidr_block': vpc_cidr_block, 
-        'private_subnet_ids': vpc.private_subnet_ids, 
-        'vpc_id': vpc.vpc_id, 
-        'db_dns_name': f"db.{resource_prefix}.{internal_domain}",
-        'internal_domain': internal_domain
-    })
-
-    pulumi.export("db_name", rds.name)
-    pulumi.export("db_port", rds.port)
-    pulumi.export("db_user", rds.user)
-    pulumi.export("db_password", rds.password)
-    pulumi.export("db_endpoint", rds.endpoint)
-    pulumi.export("db_dns_name", rds.dns_name)
 

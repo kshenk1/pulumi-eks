@@ -20,7 +20,7 @@ class EksArgs(TypedDict):
     public_access_cidrs: Input[list]
 
 class Eks(pulumi.ComponentResource):
-    def __init__(self, provider: aws.Provider, name: str, args: EksArgs, opts:Optional[pulumi.ResourceOptions] = None):
+    def __init__(self, provider: aws.Provider, stepparent: object, name: str, args: EksArgs, opts:Optional[pulumi.ResourceOptions] = None):
         super().__init__("components:index:Eks", name, args, opts)
 
         current = aws.get_caller_identity_output()

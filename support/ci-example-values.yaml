@@ -2,7 +2,7 @@
 Subdomain: true
 
 OperationsCenter:
-  HostName: "{{zone_name}}"
+  HostName: "${hosted_zone_name}"
   Protocol: https
   Platform: eks
   
@@ -13,18 +13,18 @@ OperationsCenter:
       alb.ingress.kubernetes.io/scheme: internet-facing
       alb.ingress.kubernetes.io/target-type: ip
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
-      alb.ingress.kubernetes.io/certificate-arn: {{certificate_arn}}
+      alb.ingress.kubernetes.io/certificate-arn: ${certificate_arn}
       alb.ingress.kubernetes.io/aws-load-balancer-backend-protocol: "http"
       alb.ingress.kubernetes.io/aws-load-balancer-ssl-ports: "https"
       alb.ingress.kubernetes.io/ssl-redirect: '443'
-      alb.ingress.kubernetes.io/inbound-cidrs: "{{myip/32}}"
-      alb.ingress.kubernetes.io/tags: Name={{some-name}}
+      alb.ingress.kubernetes.io/inbound-cidrs: "${myip}"
+      alb.ingress.kubernetes.io/tags: Name=default-ci-name
       alb.ingress.kubernetes.io/group.name: cloudbees-ci-core
       alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=3600
 
   # If using a custom storage class for EKS (like ebs-sc)
 Persistence:
-  StorageClass: "efs-sc-1000"
+  StorageClass: "${storage_class_name}"
 
 Agents:
   SeparateNamespace:
