@@ -20,11 +20,11 @@ config:
         min: "0"
 
   pulumi-eks:common_tags:
-    application: pulumi-eks
-    environment: development
-    expiry: 2027-2-30
-    purpose: testing pulumi infra mgmt
-    user: pulumi
+    cb-application: pulumi-eks
+    cb-environment: development
+    cb-expiry: 2027-2-30
+    cb-purpose: testing pulumi infra mgmt
+    cb-user: pulumi
 
   pulumi-eks:create_asg_schedule: "true"
   pulumi-eks:create_efs_filesystem: "true"
