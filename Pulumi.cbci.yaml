@@ -1,17 +1,49 @@
-environment:
-  - pulumi-eks/cbci
 config:
   aws:region: 'us-east-1'
   pulumi-eks:asg_schedule:
-    timezone: America/New_York
+    values:
+      timezone: Etc/UTC
+      weekday_config_down:
+        cron_schedule: 15 20 * * 1-5
+        desired: "0"
+        max: "-1"
+        min: "0"
+      weekday_config_up:
+        cron_schedule: 0 7 * * 1-5
+        desired: "2"
+        max: "-1"
+        min: "1"
+      weekend_config:
+        cron_schedule: 15 17 * * 5-7
+        desired: "0"
+        max: "-1"
+        min: "0"
+
+  pulumi-eks:common_tags:
+    application: pulumi-eks
+    environment: development
+    expiry: 2027-2-30
+    purpose: testing pulumi infra mgmt
+    user: pulumi
+
   pulumi-eks:create_asg_schedule: "true"
-  pulumi-eks:create_alb_controller: "true"
   pulumi-eks:create_efs_filesystem: "true"
   pulumi-eks:create_eks_cluster: "true"
+  pulumi-eks:create_alb_controller: "true"
   pulumi-eks:create_r53_zone: "true"
   pulumi-eks:route53_wait_for_validation: "true"
-  pulumi-eks:create_rds_instance: "false"
-  pulumi-eks:resource_prefix: ks-cbci-01
-  pulumi-eks:vpc_cidr_block: 172.31.0.0/16
-  pulumi-eks:zone_name: ng.aws.kshenk.ps.beescloud.com
-  pulumi-eks:myip: 71.60.6.47/32
+  pulumi-eks:zone_name: something.example.xom
+  pulumi-eks:eks_instance_min_mem: "8096"
+  pulumi-eks:eks_instance_min_vcpu: "4"
+  pulumi-eks:eks_max_nodes_per_nodegroup: "10"
+  pulumi-eks:eks_node_group_instance_types:
+    - m6a.xlarge
+    - t3.2xlarge
+    - t3.xlarge
+  pulumi-eks:eks_nodes_per_nodegroup: "3"
+  pulumi-eks:storage_class_name: "efs-sc-1000"
+  pulumi-eks:kubernetes_version: "1.35"
+  pulumi-eks:private_subnet_count: "2"
+  pulumi-eks:public_subnet_count: "2"
+  pulumi-eks:resource_prefix: pulumi-eks
+  pulumi-eks:vpc_cidr_block: 10.0.0.0/20

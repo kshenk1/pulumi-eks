@@ -25,7 +25,7 @@ class EksNodesEc2Args(TypedDict):
     asg_schedule: dict
 
 class EksNodesEc2(pulumi.ComponentResource):
-    def __init__(self, provider: aws.Provider, stepparent: object, name: str, args: EksNodesEc2Args, opts: Optional[pulumi.ResourceOptions] = None):
+    def __init__(self, provider: aws.Provider, stepparent: object, vpc_parent: object, name: str, args: EksNodesEc2Args, opts: Optional[pulumi.ResourceOptions] = None):
         super().__init__("components:index:EksNodesEc2", name, args, opts)
 
         asgs_created = False
@@ -78,7 +78,7 @@ class EksNodesEc2(pulumi.ComponentResource):
                     f"k8s.io/cluster-autoscaler/{args['cluster_name']}": "owned",
                     f"k8s.io/cluster/{args['cluster_name']}": "owned",
                 },
-                opts=pulumi.ResourceOptions(parent=self, provider=provider, depends_on=[stepparent]))
+                opts=pulumi.ResourceOptions(parent=self, provider=provider, depends_on=[stepparent, vpc_parent]))
             node.append(ng)
 
             # Tag the underlying ASG with all tags

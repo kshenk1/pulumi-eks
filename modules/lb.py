@@ -45,7 +45,7 @@ class LoadBalancer(pulumi.ComponentResource):
         # Note: In production, use the official fine-grained policy from
         # https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
 
-        with open("iam_policy.json") as f:
+        with open("support/iam_policy.json") as f:
             lb_policy_json = f.read()
 
         alb_policy = aws.iam.Policy(f"{name}-alb-policy",
@@ -73,7 +73,7 @@ class LoadBalancer(pulumi.ComponentResource):
 
         # If we allow the chart to create the TLS certs, they will be regenerated on every update, 
         # causing unnecessary LB controller restarts.
-        local_tls = Tls(stepparent, f"{name}-tls", {
+        local_tls = Tls(k8s_provider, stepparent, f"{name}-tls", {
             "sa_namespace": sa_namespace,
         })
 
@@ -115,7 +115,7 @@ class TlsArgs(TypedDict, total=False):
     sa_namespace: Input[str]
 
 class Tls(pulumi.ComponentResource):
-    def __init__(self, stepparent: object, name: str, args: TlsArgs, opts:Optional[pulumi.ResourceOptions] = None):
+    def __init__(self, k8s_provider: k8s.Provider, stepparent: object, name: str, args: TlsArgs, opts:Optional[pulumi.ResourceOptions] = None):
         super().__init__("components:index:Tls", name, args, opts)
 
         # Create a stable private key for the CA (stored in state, never regenerated)
@@ -195,7 +195,7 @@ class Tls(pulumi.ComponentResource):
                 "tls.key": server_key.private_key_pem,
                 "ca.crt": ca_cert.cert_pem,
             },
-            opts=pulumi.ResourceOptions(parent=self, depends_on=[stepparent], transformations=[skip_tls_secret])
+            opts=pulumi.ResourceOptions(parent=self, depends_on=[stepparent], provider=k8s_provider, transformations=[skip_tls_secret])
         )
 
         # Pass the CA bundle to the Helm chart so webhooks use it

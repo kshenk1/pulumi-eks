@@ -26,6 +26,7 @@ vpc_cidr_block                  = config.require("vpc_cidr_block")
 kubernetes_version              = config.require("kubernetes_version")
 eks_node_group_instance_types   = config.require_object("eks_node_group_instance_types")
 zone_name                       = config.require("zone_name")
+storage_class_name              = config.require("storage_class_name")
 
 pulumi.export("resource_prefix", resource_prefix)
 
@@ -139,7 +140,7 @@ if create_r53_zone:
 ## EKS Cluster
 ###################################################################################################
 if create_eks_cluster:
-    eks = Eks(aws_provider, f"{resource_prefix}-eks", {
+    eks = Eks(aws_provider, vpc, f"{resource_prefix}-eks", {
         'cluster_name': resource_prefix, 
         'k8s_version': kubernetes_version, 
         'k8s_upgrade_policy': kubernetes_upgrade_policy, 
@@ -148,7 +149,7 @@ if create_eks_cluster:
         'private_subnet_ids': vpc.private_subnet_ids, 
         'enable_private_access': cluster_enable_private_access, 
         'enable_public_access': cluster_enable_public_access, 
-        'storage_class_name': "efs-sc-1000",
+        'storage_class_name': storage_class_name,
         'public_access_cidrs': std.concat_output(input=[
             cluster_access_cidrs,
             [vpc.nat_public_ip.apply(lambda nat_public_ip: f"{nat_public_ip}/32")],
@@ -174,7 +175,7 @@ if create_eks_cluster:
         opts=pulumi.ResourceOptions(parent=eks)
     )
 
-    eks_nodes_ec2 = EksNodesEc2(aws_provider, eks, f"{resource_prefix}-eks-nodes", {
+    eks_nodes_ec2 = EksNodesEc2(aws_provider, eks, vpc, f"{resource_prefix}-eks-nodes", {
         'cluster_name': resource_prefix, 
         'aws_iam_role_node_arn': eks.aws_iam_role_node_arn, 
         'nodegroup_name': "ng", 
@@ -196,6 +197,7 @@ if create_eks_cluster:
     pulumi.export("eks_cluster_id", eks.cluster_id)
     pulumi.export("eks_cluster_status", eks.status)
     pulumi.export("eks_cluster_endpoint", eks.eks_endpoint)
+    pulumi.export("storage_class_name", storage_class_name)
 
     pulumi.export("eks_nodegroup_ids", eks_nodes_ec2.eks_nodegroup_ids)
     pulumi.export("eks_nodegroup_arns", eks_nodes_ec2.eks_nodegroup_arns)
