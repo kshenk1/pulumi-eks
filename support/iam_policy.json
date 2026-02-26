@@ -170,7 +170,8 @@
             "Effect": "Allow",
             "Action": [
                 "elasticloadbalancing:AddTags",
-                "elasticloadbalancing:RemoveTags"
+                "elasticloadbalancing:RemoveTags",
+                "elasticloadbalancing:SetRulePriorities"
             ],
             "Resource": [
                 "arn:aws:elasticloadbalancing:*:*:listener/net/*/*/*",

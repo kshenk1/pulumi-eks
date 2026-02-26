@@ -10,6 +10,7 @@ class EksAddonsArgs(TypedDict):
     oidc_provider_arn: Input[str]
     oidc_provider_url: Input[str]
     storage_class_name: Input[str]
+    storage_mount_options: Input[list]
     efs_filesystem_id: Input[str]
 
 class EfsAddon(pulumi.ComponentResource):
@@ -44,6 +45,7 @@ class EfsAddon(pulumi.ComponentResource):
             metadata={
                 "name": args["storage_class_name"],
             },
+            mount_options=args['storage_mount_options'],
             parameters={
                 "provisioningMode": "efs-ap",
                 "fileSystemId": args["efs_filesystem_id"],
