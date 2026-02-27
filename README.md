@@ -33,9 +33,9 @@ pip install -r requirements.txt
 
 | A - One-time Config | B - Setup/Install | C - Optional ECR Access | D - Teardown |
 |---|---|---|---|
-| 1. Creating your own Pulumi.you.yaml file | 1. `pulumi up` | 1. `./ecr-access.sh create` | 1. `./install-helper.sh destroy` |
-| 2. Setting some initial pulumi values | 2. `./create-helm-values.sh` | | 2. `pulumi destroy` |
-| | 3. `./helm-install.sh` | | |
+| 1. Python 3.12, cloning the repo, venv creation | 1. `pulumi up` | 1. `./ecr-access.sh create` | 1. `./install-helper.sh destroy` |
+| 2. Creating your own Pulumi.you.yaml file | 2. `./create-helm-values.sh` | | 2. `pulumi destroy` |
+| 3. Setting some initial pulumi values | 3. `./helm-install.sh` | | |
 | | 4. `./install-helper.sh create` | | |
 
 ## Create Pulumi.${USER}.yaml
