@@ -54,3 +54,9 @@ config:
   pulumi-eks:public_subnet_count: "2"
   pulumi-eks:resource_prefix: pulumi-eks
   pulumi-eks:vpc_cidr_block: 10.0.0.0/20
+  pulumi-eks:ci_namespace: nothing
+  pulumi-eks:myip: 0.0.0.0/0
+  pulumi-eks:additional_eks_access_cidrs:
+    - 0.0.0.0/0
+  pulumi-eks:additional_alb_access_cidrs:
+    - 0.0.0.0/0
