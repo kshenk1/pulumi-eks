@@ -12,6 +12,22 @@ source .venv/bin/activate{.sh,.zsh,.fish} # whatever suits your shell
 pip install -r requirements.txt
 ```
 
+# How to make it all go
+* [Install Pulumi](https://www.pulumi.com/docs/install/)
+* [AWS & Pulumi](https://www.pulumi.com/docs/clouds/aws/get-started/begin/) - _Most of us have this going in our local shells already_
+* [Login to Pulumi Cloud](https://app.pulumi.com/signin) - If this is your first time, you may have to create an account. I used GitHub as my signin, therefore:
+```
+pulumi whoami
+kshenk1
+```
+* Login via the CLI: `pulumi login`
+* Follow the steps below 
+
+```
+git clone git@github.com:kshenk1/pulumi-eks.git
+cd pulumi-eks
+```
+
 > [!IMPORTANT]
 > The point of the bash helper scripts in here is to pull values together and perform some work for you. The intention is not to "string it all together and make it a one-button-push deployment". The scripts should not get too complicated.
 > 
