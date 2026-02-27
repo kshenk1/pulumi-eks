@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+[[ -x "ecr-access.sh" ]] && {
+    echo "Running 'ecr-access.sh delete' first..."
+    ./ecr-access delete
+}
+
 export alb_dns_name="$(kubectl get ingress -n core -o jsonpath='{.items[*].status.loadBalancer.ingress[*].hostname}')"
 export action="DELETE"
 export hosted_zone_name="$(pulumi stack output zone_name)"

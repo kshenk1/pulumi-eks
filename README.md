@@ -7,6 +7,25 @@ source .venv/bin/activate{.sh,.zsh,.fish} # whatever suits your shell
 pip install -r requirements.txt
 ```
 
+
+
+eksctl create iamserviceaccount \
+  --name ci-pull-images \
+  --namespace core \
+  --cluster kshenk-005 \
+  --attach-policy-arn arn:aws:iam::324005994172:policy/ECRPullAccess \
+  --approve \
+  --override-existing-serviceaccounts
+cat create-service-account.txt
+vim create-service-account.txt
+aws iam create-policy \
+          --policy-name ECRPullAccess \
+          --policy-document file:///Users/kshenk/dev/docker-builds/visa/plugin-analyzer/ecr-pull-policy.json
+
+
+
+
+
 ## Setting some initial configuration values
 1. Initialize a new stack with your local username
 2. By default, the cluster will be locked down. We'll set _your_ ip so you can reach it via kubectl commands.

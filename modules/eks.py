@@ -7,6 +7,7 @@ import pulumi_command as command
 import pulumi_aws as aws
 import pulumi_std as std
 import pulumi_tls as tls
+import pulumi_kubernetes as k8s
 
 class EksArgs(TypedDict):
     cluster_name: Input[str]
