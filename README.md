@@ -28,6 +28,8 @@ pip install -r requirements.txt
 ```
 cp Pulumi.cbci.yaml Pulumi.${USER}.yaml
 ```
+> [!WARNING]
+> We use combination of `myip`, `additional_eks_access_cidrs`, and `additional_alb_access_cidrs` to create the security groups allowing access to the EKS Cluster and the ALB so be sure you set these accordingly. Remove them completely if they are not needed (we don't want to leave 0.0.0.0/0 in there).
 
 ## Setting some initial Pulumi configuration values
 1. Initialize a new stack with your local username

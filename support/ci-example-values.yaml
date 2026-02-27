@@ -17,12 +17,11 @@ OperationsCenter:
       alb.ingress.kubernetes.io/aws-load-balancer-backend-protocol: "http"
       alb.ingress.kubernetes.io/aws-load-balancer-ssl-ports: "https"
       alb.ingress.kubernetes.io/ssl-redirect: '443'
-      alb.ingress.kubernetes.io/inbound-cidrs: "${myip}"
+      alb.ingress.kubernetes.io/inbound-cidrs: "${inbound_cidrs}"
       alb.ingress.kubernetes.io/tags: Name=default-ci-name
       alb.ingress.kubernetes.io/group.name: cloudbees-ci-core
       alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=3600
 
-  # If using a custom storage class for EKS (like ebs-sc)
 Persistence:
   StorageClass: "${storage_class_name}"
 

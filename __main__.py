@@ -72,11 +72,16 @@ cluster_enable_public_access = config.get_bool("cluster_enable_public_access") o
 
 # You typically want YOUR local IP address in here at the least.
 # TODO: take additional cidrs (such as the VPN) from user configuration 
-cluster_access_cidrs = [config.get("myip")]
+access_cidrs = [config.get("myip")]
+if len(access_cidrs) == 0:
+    pulumi.warn("'myip' is not set!")
+
+additional_eks_cidrs = config.get_object("additional_eks_access_cidrs") or []
+cluster_access_cidrs = access_cidrs + additional_eks_cidrs
 
 asg_schedule = config.get_object("asg_schedule")
 if create_asg_schedule is not True:
-    pulumi.info("AutoScaling Group Schedules not enabled")
+    pulumi.info("AutoScaling Group Schedules are not enabled")
 
 if eks_max_nodes_per_nodegroup < eks_nodes_per_nodegroup and eks_nodes_per_nodegroup > 0:
     die("eks_max_nodes_per_nodegroup must be greater than eks_nodes_per_nodegroup!")
