@@ -7,25 +7,6 @@ source .venv/bin/activate{.sh,.zsh,.fish} # whatever suits your shell
 pip install -r requirements.txt
 ```
 
-
-
-eksctl create iamserviceaccount \
-  --name ci-pull-images \
-  --namespace core \
-  --cluster kshenk-005 \
-  --attach-policy-arn arn:aws:iam::324005994172:policy/ECRPullAccess \
-  --approve \
-  --override-existing-serviceaccounts
-cat create-service-account.txt
-vim create-service-account.txt
-aws iam create-policy \
-          --policy-name ECRPullAccess \
-          --policy-document file:///Users/kshenk/dev/docker-builds/visa/plugin-analyzer/ecr-pull-policy.json
-
-
-
-
-
 ## Setting some initial configuration values
 1. Initialize a new stack with your local username
 2. By default, the cluster will be locked down. We'll set _your_ ip so you can reach it via kubectl commands.
@@ -67,13 +48,21 @@ Once you are satisfied with `support/${USER}-values.yaml`...
 > We will be using Subdomains for controllers. Because of this, we need the ALB DNS Name in order to create a * A-Record so all requests end up on the same LB. The CI application knows how to route once traffic gets there.
 > This creates a wildcard Route53 DNS record pointing to the LB created by the aws-load-balancer-controller in K8s, gathering up the data so you don't have to..
 ```
-./finish-setup.sh
+./install-helper.sh create
 ```
 
 # Teardown
 ## Why scripted?
 We need to remove a couple resources before `pulumi destroy` will work.
 ```
-./before-destroy.sh
+./install-helper.sh destroy
 pulumi destroy
+```
+
+# Pulling images from ECR for builds
+This is typically the next thing you'll want to do once you get moving. The following script will create the iam policy and K8s service account required to make that happen.
+> [!NOTE]
+> The `install-helper.sh` will run this script with `destroy`, when that argument is given.
+```
+./ecr-access.sh create
 ```
