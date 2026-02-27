@@ -97,3 +97,9 @@ This is typically the next thing you'll want to do once you get moving. The foll
 ```
 > [!NOTE]
 > The `install-helper.sh` will run this script with `destroy`, when that argument is given.
+
+# Upgrading CI
+```
+pulumi config set ci_version new.ci.version
+./helm-install.sh
+```
