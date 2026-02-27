@@ -6,7 +6,7 @@ This was geared towards installing Cloudbees CI, which is what it eventually evo
 ## Requirements
 It is assumed that you have `kubectl`, `helm`, and `aws` (cli v2) installed locally. If you don't have at least `python 3.12` or greater, install it. We're going to create a virtual environment to run everything - activate the venv and install our requirements.
 ```
-pip install python@3.12
+brew install python@3.12
 python3.12 -m venv .venv
 source .venv/bin/activate{.sh,.zsh,.fish} # whatever suits your shell
 pip install -r requirements.txt
