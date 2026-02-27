@@ -50,7 +50,6 @@ class Efs(pulumi.ComponentResource):
                 security_groups=[efs_sg.id],
                 opts = pulumi.ResourceOptions(parent=self, provider=provider)))
 
-        
         self.efs_mount_target = main.dns_name
         self.efs_file_system_id = main.id
 

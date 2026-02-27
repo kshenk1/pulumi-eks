@@ -24,21 +24,18 @@ config = pulumi.Config()
 resource_prefix                 = config.require("resource_prefix")
 vpc_cidr_block                  = config.require("vpc_cidr_block")
 kubernetes_version              = config.require("kubernetes_version")
-eks_node_group_instance_types   = config.require_object("eks_node_group_instance_types")
 zone_name                       = config.require("zone_name")
 storage_class_name              = config.require("storage_class_name")
+eks_node_group_instance_types   = config.require_object("eks_node_group_instance_types")
+storage_mount_options           = config.require_object("storage_mount_options")
 
 pulumi.export("resource_prefix", resource_prefix)
 
 # The number of PUBLIC subnets to create
-public_subnet_count = config.get_int("public_subnet_count")
-if public_subnet_count is None:
-    public_subnet_count = 2
+public_subnet_count = config.get_int("public_subnet_count") or 2
 
 # The number of PRIVATE subnets to create. This also current dictates the number of node-groups created for the cluster - 1 per private subnet.
-private_subnet_count = config.get_int("private_subnet_count")
-if private_subnet_count is None:
-    private_subnet_count = 1
+private_subnet_count = config.get_int("private_subnet_count") or 2
 
 common_tags = config.get_object("common_tags")
 if common_tags is None:
@@ -50,28 +47,18 @@ if common_tags is None:
         "cb-user": "kshenk",
     }
 
-kubernetes_upgrade_policy = config.get("kubernetes_upgrade_policy")
-if kubernetes_upgrade_policy is None:
-    kubernetes_upgrade_policy = "STANDARD"
+kubernetes_upgrade_policy = config.get("kubernetes_upgrade_policy") or "STANDARD"
 
-eks_instance_min_vcpu = config.get_int("eks_instance_min_vcpu")
-if eks_instance_min_vcpu is None:
-    eks_instance_min_vcpu = 1
+eks_instance_min_vcpu = config.get_int("eks_instance_min_vcpu") or 1
 
 # This is the min memory (mib) for any instance participating in a node group/autoscaling group
-eks_instance_min_mem = config.get_int("eks_instance_min_mem")
-if eks_instance_min_mem is None:
-    eks_instance_min_mem = 4096
+eks_instance_min_mem = config.get_int("eks_instance_min_mem") or 4096
 
 # How many nodes should exist in each nodegroup created
-eks_nodes_per_nodegroup = config.get_int("eks_nodes_per_nodegroup")
-if eks_nodes_per_nodegroup is None:
-    eks_nodes_per_nodegroup = 1
+eks_nodes_per_nodegroup = config.get_int("eks_nodes_per_nodegroup") or 1
 
 # Maximum nodes that should exist in each nodegroup created
-eks_max_nodes_per_nodegroup = config.get_int("eks_max_nodes_per_nodegroup")
-if eks_max_nodes_per_nodegroup is None:
-    eks_max_nodes_per_nodegroup = 10
+eks_max_nodes_per_nodegroup = config.get_int("eks_max_nodes_per_nodegroup") or 10
 
 create_alb_controller = config.get_bool("create_alb_controller") or False
 create_eks_cluster = config.get_bool("create_eks_cluster") or False
@@ -80,10 +67,11 @@ create_asg_schedule = config.get_bool("create_asg_schedule") or False
 create_r53_zone = config.get_bool("create_r53_zone") or False
 route53_wait_for_validation = config.get_bool("route53_wait_for_validation") or False
 
-cluster_enable_private_access = config.get_bool("cluster_enable_private_access")
-cluster_enable_public_access = config.get_bool("cluster_enable_public_access")
+cluster_enable_private_access = config.get_bool("cluster_enable_private_access") or False
+cluster_enable_public_access = config.get_bool("cluster_enable_public_access") or True # Otherwise, I don't think you can reach it.
 
 # You typically want YOUR local IP address in here at the least.
+# TODO: take additional cidrs (such as the VPN) from user configuration 
 cluster_access_cidrs = [config.get("myip")]
 
 asg_schedule = config.get_object("asg_schedule")
@@ -98,6 +86,7 @@ if create_alb_controller and not create_eks_cluster:
 
 available = aws.get_availability_zones_output()
 
+# Passing the provider to each resource adopts the tags
 aws_provider = aws.Provider("aws-provider",
     default_tags=aws.ProviderDefaultTagsArgs(
         tags=common_tags
@@ -226,7 +215,8 @@ if create_efs_filesystem:
             'cluster_name': eks.cluster_name, 
             'oidc_provider_arn': eks.oidc_provider_arn, 
             'oidc_provider_url': eks.oidc_provider_url,
-            'storage_class_name': "efs-sc-1000",
+            'storage_class_name': storage_class_name,
+            'storage_mount_options': storage_mount_options,
             'efs_filesystem_id': efs[0].efs_file_system_id
         })
 

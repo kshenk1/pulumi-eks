@@ -7,6 +7,7 @@ import pulumi_command as command
 import pulumi_aws as aws
 import pulumi_std as std
 import pulumi_tls as tls
+import pulumi_kubernetes as k8s
 
 class EksArgs(TypedDict):
     cluster_name: Input[str]
@@ -83,49 +84,37 @@ class Eks(pulumi.ComponentResource):
                 "endpoint_public_access": args["enable_public_access"],
                 "public_access_cidrs": args["public_access_cidrs"],
             },
-            opts = pulumi.ResourceOptions(parent=self, provider=provider))
-
-        oidc_issuer_raw: pulumi.Output[str] = main.identities.apply(
-            lambda ids: str(ids[0].oidcs[0].issuer) if ids and ids[0].oidcs else ""
+            opts = pulumi.ResourceOptions(parent=self, provider=provider)
         )
 
-        assume_role_policy = pulumi.Output.all(
-            account_id=current.account_id,
-            oidc_issuer=std.replace_output(
-                text=oidc_issuer_raw,
-                search="https://",
-                replace=""
-            ),
-        ).apply(lambda _args: json.dumps({
+        oidc_issuer_url = main.identities[0].oidcs[0].issuer
+        oidc_url_no_proto = oidc_issuer_url.apply(lambda url: url.replace("https://", ""))
+
+        policy_doc = pulumi.Output.all(oidc_url_no_proto, current.account_id).apply(lambda args: json.dumps({
             "Version": "2012-10-17",
             "Statement": [
                 {
                     "Effect": "Allow",
-                    "Principal": {
-                        "Service": "ec2.amazonaws.com",
-                    },
+                    "Principal": {"Service": "ec2.amazonaws.com"},
                     "Action": "sts:AssumeRole",
                 },
                 {
                     "Effect": "Allow",
-                    "Principal": {
-                        "Federated": f"arn:aws:iam::{_args['account_id']}:oidc-provider/{_args['oidc_issuer']}",
-                    },
+                    "Principal": {"Federated": f"arn:aws:iam::${args[1]}:oidc-provider/{args[0]}"},
                     "Action": "sts:AssumeRoleWithWebIdentity",
                     "Condition": {
                         "StringEquals": {
-                            f"{_args['oidc_issuer']}:aud": "sts.amazonaws.com",
-                            f"{_args['oidc_issuer']}:sub": "system:serviceaccount:kube-system:ebs-csi-controller-sa",
-                        },
+                            f"{args[0]}:aud": "sts.amazonaws.com",
+                            f"{args[0]}:sub": "system:serviceaccount:kube-system:ebs-csi-controller-sa",
+                        }
                     },
                 },
             ],
         }))
 
-
         eks_nodes = aws.iam.Role(f"{name}-eks_nodes",
             name=f"{args['cluster_name']}-eks-node-group",
-            assume_role_policy=assume_role_policy,
+            assume_role_policy=policy_doc,
             opts = pulumi.ResourceOptions(parent=self, provider=provider))
 
         amazon_ebscsi_driver_policy = aws.iam.RolePolicyAttachment(f"{name}-AmazonEBSCSIDriverPolicy",
@@ -223,8 +212,6 @@ class Eks(pulumi.ComponentResource):
             role=eks_nodes.name,
             opts = pulumi.ResourceOptions(parent=self, provider=provider))
 
-        oidc_issuer_url = main.identities[0].oidcs[0].issuer
-
         # Fetch the TLS thumbprint (required for the OIDC provider)
         tls_cert = tls.get_certificate_output(url=oidc_issuer_url)
 
@@ -250,7 +237,7 @@ class Eks(pulumi.ComponentResource):
         )
 
         # Strip the "https://" to get the bare URL for the provider
-        self.oidc_provider_url = oidc_issuer_url.apply(lambda url: url.replace("https://", ""))
+        self.oidc_provider_url = oidc_url_no_proto
         self.oidc_provider_arn = oidc_provider.arn
         self.certificate_authority = main.certificate_authority.apply(lambda ca: ca.data if ca else "")
 

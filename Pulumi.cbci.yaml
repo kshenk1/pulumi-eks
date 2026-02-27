@@ -32,7 +32,7 @@ config:
   pulumi-eks:create_alb_controller: "true"
   pulumi-eks:create_r53_zone: "true"
   pulumi-eks:route53_wait_for_validation: "true"
-  pulumi-eks:zone_name: something.example.xom
+  pulumi-eks:zone_name: something.example.com
   pulumi-eks:eks_instance_min_mem: "8096"
   pulumi-eks:eks_instance_min_vcpu: "4"
   pulumi-eks:eks_max_nodes_per_nodegroup: "10"
@@ -42,6 +42,13 @@ config:
     - t3.xlarge
   pulumi-eks:eks_nodes_per_nodegroup: "3"
   pulumi-eks:storage_class_name: "efs-sc-1000"
+  pulumi-eks:storage_mount_options:
+    - tls
+    - iam
+    - noatime
+    - nodiratime
+    - _netdev
+    - async
   pulumi-eks:kubernetes_version: "1.35"
   pulumi-eks:private_subnet_count: "2"
   pulumi-eks:public_subnet_count: "2"
