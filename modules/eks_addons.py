@@ -1,11 +1,11 @@
 import pulumi
 import json
 from pulumi import Input
-from typing import Optional, Dict, TypedDict, Any
+from typing import Optional, TypedDict
 import pulumi_aws as aws
 import pulumi_kubernetes as k8s
 
-class EksAddonsArgs(TypedDict):
+class EfsAddonsArgs(TypedDict):
     cluster_name: Input[str]
     oidc_provider_arn: Input[str]
     oidc_provider_url: Input[str]
@@ -14,7 +14,7 @@ class EksAddonsArgs(TypedDict):
     efs_filesystem_id: Input[str]
 
 class EfsAddon(pulumi.ComponentResource):
-    def __init__(self, provider: k8s.Provider, stepparent: object, name: str, args: EksAddonsArgs, opts:Optional[pulumi.ResourceOptions] = None):
+    def __init__(self, provider: k8s.Provider, stepparent: object, name: str, args: EfsAddonsArgs, opts:Optional[pulumi.ResourceOptions] = None):
         super().__init__("components:index:EfsAddon", name, args, opts)
 
         efs_csi_role = aws.iam.Role(f"{name}-role",
