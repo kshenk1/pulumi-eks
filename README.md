@@ -1,16 +1,10 @@
 # Pulumi project pulumi-eks
 In the beginning, this started out with a `pulumi convert ...` my current terraform to pulumi. It did a pretty good job - especially in regards to converting the resources from terraform components to pulumi components. That, and it gave me a decent scaffolding to start working with. What it was _not_ able to convert well automagically were things like flatten, merge etc. Since then, I've added new resources and filled in a lot of gaps I had with my previous setup with terraform.
 
-This was geared towards installing Cloudbees CI, which is what it eventually evolved into, however most of this is quite foundational and would likely need to take place for any application being served from EKS.
+This was geared towards installing Cloudbees CI, however; most of this is quite foundational and would likely need to take place for any application being served from EKS.
 
 ## Requirements
-It is assumed that you have `kubectl`, `helm`, and `aws` (cli v2) installed locally. If you don't have at least `python 3.12` or greater, install it. We're going to create a virtual environment to run everything - activate the venv and install our requirements.
-```
-brew install python@3.12
-python3.12 -m venv .venv
-source .venv/bin/activate{.sh,.zsh,.fish} # whatever suits your shell
-pip install -r requirements.txt
-```
+It is assumed that you have `kubectl`, `helm`, `jq`. and `aws` (cli v2) installed locally. If you don't have at least `python 3.12` or greater, install it. We're going to create a virtual environment to run everything in a moment...
 
 # How to make it all go
 * [Install Pulumi](https://www.pulumi.com/docs/install/)
@@ -20,12 +14,16 @@ pip install -r requirements.txt
 pulumi whoami
 kshenk1
 ```
-* Login via the CLI: `pulumi login`
-* Follow the steps below 
+* First: Login via the CLI: `pulumi login`
+* Then, follow the steps below 
 
 ```
+brew install python@3.12
 git clone git@github.com:kshenk1/pulumi-eks.git
 cd pulumi-eks
+python3.12 -m venv .venv
+source .venv/bin/activate{.sh,.zsh,.fish} # whatever suits your shell
+pip install -r requirements.txt
 ```
 
 > [!IMPORTANT]
@@ -51,7 +49,7 @@ cp Pulumi.cbci.yaml Pulumi.${USER}.yaml
 1. Initialize a new stack with your local username
 2. By default, the cluster will be locked down. We'll set _your_ ip so you can reach it via kubectl commands.
 3. Set the namespace we're going to use. I chose 'core'. It can be whatever you want.
-4. Set the version of CI that we want to install later. This makes it so we never have to hard-code the version
+4. Set the version of CI that we want to install later. This makes it so we never have to hard-code th
 ```
 pulumi stack init ${USER}
 pulumi config set myip "$(dig +short myip.opendns.com @resolver1.opendns.com)/32"
