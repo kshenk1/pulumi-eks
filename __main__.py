@@ -37,6 +37,17 @@ public_subnet_count = config.get_int("public_subnet_count") or 2
 # The number of PRIVATE subnets to create. This also current dictates the number of node-groups created for the cluster - 1 per private subnet.
 private_subnet_count = config.get_int("private_subnet_count") or 2
 
+# How many nodes should exist in each nodegroup created
+eks_nodes_per_nodegroup = config.get_int("eks_nodes_per_nodegroup") or 1
+
+# This is the min memory (mib) for any instance participating in a node group/autoscaling group
+eks_instance_min_mem = config.get_int("eks_instance_min_mem") or 4096
+
+# Maximum nodes that should exist in each nodegroup created
+eks_max_nodes_per_nodegroup = config.get_int("eks_max_nodes_per_nodegroup") or 10
+
+eks_instance_min_vcpu = config.get_int("eks_instance_min_vcpu") or 1
+
 common_tags = config.get_object("common_tags")
 if common_tags is None:
     common_tags = {
@@ -48,18 +59,6 @@ if common_tags is None:
     }
 
 kubernetes_upgrade_policy = config.get("kubernetes_upgrade_policy") or "STANDARD"
-
-eks_instance_min_vcpu = config.get_int("eks_instance_min_vcpu") or 1
-
-# This is the min memory (mib) for any instance participating in a node group/autoscaling group
-eks_instance_min_mem = config.get_int("eks_instance_min_mem") or 4096
-
-# How many nodes should exist in each nodegroup created
-eks_nodes_per_nodegroup = config.get_int("eks_nodes_per_nodegroup") or 1
-
-# Maximum nodes that should exist in each nodegroup created
-eks_max_nodes_per_nodegroup = config.get_int("eks_max_nodes_per_nodegroup") or 10
-
 create_alb_controller = config.get_bool("create_alb_controller") or False
 create_eks_cluster = config.get_bool("create_eks_cluster") or False
 create_efs_filesystem = config.get_bool("create_efs_filesystem") or False

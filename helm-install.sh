@@ -3,7 +3,12 @@
 namespace="$(pulumi config get ci_namespace)"
 values="support/${USER}-values.yaml"
 timeout="10000s"
-version="3.35786.0+7b6bb59b13c7"
+version="$(pulumi config get ci_version)"
+
+[[ -z "$version" ]] && {
+    echo "Cannot find ci_version in pulumi config. Please run 'pulumi config set ci_version the.chart.version' and try again." >&2
+    exit 1
+}
 
 kubectl get ns $namespace > /dev/null 2>&1 || kubectl create ns $namespace
 

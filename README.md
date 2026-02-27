@@ -51,10 +51,12 @@ cp Pulumi.cbci.yaml Pulumi.${USER}.yaml
 1. Initialize a new stack with your local username
 2. By default, the cluster will be locked down. We'll set _your_ ip so you can reach it via kubectl commands.
 3. Set the namespace we're going to use. I chose 'core'. It can be whatever you want.
+4. Set the version of CI that we want to install later. This makes it so we never have to hard-code the version
 ```
 pulumi stack init ${USER}
 pulumi config set myip "$(dig +short myip.opendns.com @resolver1.opendns.com)/32"
 pulumi config set ci_namespace core
+pulumi config set ci_version 3.35786.0+7b6bb59b13c7
 ```
 > [!NOTE]
 > These values will be written to `Pulumi.${USER}.yaml`. You can modify the file anyway you like.
