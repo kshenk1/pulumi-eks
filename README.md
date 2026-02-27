@@ -7,6 +7,17 @@ source .venv/bin/activate{.sh,.zsh,.fish} # whatever suits your shell
 pip install -r requirements.txt
 ```
 
+> [!IMPORTANT]
+> The point of the bash helper scripts in here is to pull values together and perform some work for you. The intention is not to "string it all together and make it a one-button-push deployment". The scripts should not get too complicated.
+> This is an overview of what this will look like:
+
+| A - One-time Config | B - Setup/Install | C - Optional ECR Access | D - Teardown |
+|---|---|---|---|
+| 1. Setting some initial pulumi values | 1. `pulumi up` | 1. `./ecr-access.sh create` | 1. `./install-helper.sh destroy` |
+| 2. Creating your own Pulumi.you.yaml file | 2. `./create-helm-values.sh` | | 2. `pulumi destroy` |
+| | 3. `./helm-install.sh` | | |
+| | 4. `./install-helper.sh create` | | |
+
 ## Setting some initial configuration values
 1. Initialize a new stack with your local username
 2. By default, the cluster will be locked down. We'll set _your_ ip so you can reach it via kubectl commands.
@@ -16,6 +27,7 @@ pulumi stack init ${USER}
 pulumi config set myip "$(dig +short myip.opendns.com @resolver1.opendns.com)/32"
 pulumi config set ci_namespace core
 ```
+
 > [!NOTE]
 > These values will be written to `Pulumi.${USER}.yaml`. If it doesn't exist, it will be created. If it exists, values you set will be added to this file.
 
@@ -61,8 +73,8 @@ pulumi destroy
 
 # Pulling images from ECR for builds
 This is typically the next thing you'll want to do once you get moving. The following script will create the iam policy and K8s service account required to make that happen.
-> [!NOTE]
-> The `install-helper.sh` will run this script with `destroy`, when that argument is given.
 ```
 ./ecr-access.sh create
 ```
+> [!NOTE]
+> The `install-helper.sh` will run this script with `destroy`, when that argument is given.
