@@ -13,6 +13,8 @@ class LBArgs(TypedDict, total=False):
     oidc_provider_arn: Input[str]
     oidc_provider_url: Input[str]
     cluster_name: Input[str]
+    lb_service_account_namespace: Input[str]
+    lb_service_account_name: Input[str]
 
 class LoadBalancer(pulumi.ComponentResource):
     def __init__(self, k8s_provider: k8s.Provider, stepparent: object, name: str, args: LBArgs, opts:Optional[pulumi.ResourceOptions] = None):
@@ -39,12 +41,6 @@ class LoadBalancer(pulumi.ComponentResource):
             opts=pulumi.ResourceOptions(parent=self)
         )
 
-        sa_name = "aws-load-balancer-controller"
-        sa_namespace = "kube-system"
-
-        # Note: In production, use the official fine-grained policy from
-        # https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
-
         with open("support/iam_policy.json") as f:
             lb_policy_json = f.read()
 
@@ -62,8 +58,8 @@ class LoadBalancer(pulumi.ComponentResource):
         # 3. Kubernetes service account annotated with the role ARN
         lb_sa = k8s.core.v1.ServiceAccount(f"{name}-sa",
             metadata=k8s.meta.v1.ObjectMetaArgs(
-                name=sa_name,
-                namespace=sa_namespace,
+                name=args['lb_service_account_name'],
+                namespace=args['lb_service_account_namespace'],
                 annotations={
                     "eks.amazonaws.com/role-arn": lb_controller_role.arn,
                 },
@@ -74,7 +70,7 @@ class LoadBalancer(pulumi.ComponentResource):
         # If we allow the chart to create the TLS certs, they will be regenerated on every update, 
         # causing unnecessary LB controller restarts.
         local_tls = Tls(k8s_provider, stepparent, f"{name}-tls", {
-            "sa_namespace": sa_namespace,
+            "sa_namespace": args['lb_service_account_namespace'],
         })
 
         alb_controller = k8s.helm.v4.Chart(f"{name}-chart",
@@ -82,12 +78,12 @@ class LoadBalancer(pulumi.ComponentResource):
             repository_opts=k8s.helm.v4.RepositoryOptsArgs(
                 repo="https://aws.github.io/eks-charts",
             ),
-            namespace=sa_namespace,
+            namespace=args['lb_service_account_namespace'],
             values={
                 "clusterName": args["cluster_name"],
                 "serviceAccount": {
                     "create": False,  # We created it above
-                    "name": sa_name,
+                    "name": args['lb_service_account_name'],
                 },
                 "webhook": {
                     "certManager": {
@@ -104,7 +100,7 @@ class LoadBalancer(pulumi.ComponentResource):
         )
 
         self.lb_controller_role_arn = lb_controller_role.arn
-        self.service_account_name = sa_name
+        self.service_account_name = args['lb_service_account_name']
 
         self.register_outputs({
             "lb_controller_role_arn": self.lb_controller_role_arn,
