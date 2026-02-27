@@ -12,7 +12,6 @@ class Route53(pulumi.ComponentResource):
     def __init__(self, provider: aws.Provider, name: str, args: Route53Args, opts:Optional[pulumi.ResourceOptions] = None):
         super().__init__("components:index:Route53", name, args, opts)
 
-
         # 1. Create the NEW child zone (e.g., dev.example.com)
         child_zone = aws.route53.Zone(f"{name}-child-zone",
             name=args['zone_name'],

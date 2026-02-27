@@ -232,6 +232,8 @@ if create_alb_controller:
         'resource_prefix': resource_prefix,
         'oidc_provider_arn': eks.oidc_provider_arn,
         'oidc_provider_url': eks.oidc_provider_url,
+        'lb_service_account_namespace': 'kube-system',
+        'lb_service_account_name': 'aws-load-balancer-controller'
     })
 
     pulumi.export("alb_controller_sa_name", alb.service_account_name)

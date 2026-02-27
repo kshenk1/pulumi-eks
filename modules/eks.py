@@ -236,7 +236,6 @@ class Eks(pulumi.ComponentResource):
             opts = pulumi.ResourceOptions(depends_on=[create_kubeconfig], provider=provider, parent=self)
         )
 
-        # Strip the "https://" to get the bare URL for the provider
         self.oidc_provider_url = oidc_url_no_proto
         self.oidc_provider_arn = oidc_provider.arn
         self.certificate_authority = main.certificate_authority.apply(lambda ca: ca.data if ca else "")
