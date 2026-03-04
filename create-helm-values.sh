@@ -24,7 +24,7 @@ additional_alb_cidrs="$(pulumi config get additional_alb_access_cidrs)"
 [[ -n "$additional_alb_cidrs" ]] && {
     _alb_cidrs="$(echo "$additional_alb_cidrs" | jq -r 'join(",")')"
     [[ -n "$inbound_cidrs" ]] && inbound_cidrs="${inbound_cidrs},"
-    inbound_cidrs="${inbound_cidrs},$_alb_cidrs"
+    inbound_cidrs="${inbound_cidrs}$_alb_cidrs"
 }
 
 export inbound_cidrs
