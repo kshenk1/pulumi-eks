@@ -1,0 +1,73 @@
+# .gitleaks.toml
+# CloudBees PS/SE — Custom gitleaks rules
+#
+# This EXTENDS gitleaks' built-in ruleset (AWS keys, GitHub PATs, GCP, Azure,
+# Stripe, Twilio, and 100+ others). Only CloudBees-specific additions go here.
+#
+# Docs: https://github.com/gitleaks/gitleaks/tree/master#configuration
+
+title = "CloudBees PS/SE Secret Scanning Rules"
+
+[extend]
+# Pull in all built-in rules as the baseline
+useDefault = true
+
+# ── Custom rules for CloudBees and common PS/SE patterns ──────────────────
+
+[[rules]]
+id = "cloudbees-api-token"
+description = "Possible CloudBees API token"
+regex = '''(?i)(cloudbees[_\-]?(api[_\-]?)?token|cb[_\-]token)\s*[:=]\s*['"]?([a-zA-Z0-9\-_]{20,})['"]?'''
+tags = ["cloudbees", "api-key"]
+
+[[rules]]
+id = "demo-credential-comment"
+description = "Demo or test credential left in a comment"
+# Catches patterns like: # password: admin123 | # token: abc123 | # user: demo / pass: demo
+regex = '''(?i)#\s*(password|passwd|pwd|token|secret|api[_\-]?key)\s*[:=]\s*\S+'''
+tags = ["credential", "comment"]
+
+[[rules]]
+id = "env-var-assignment-secret"
+description = "Secret assigned directly in shell or env file"
+# Catches: export SECRET=abc123 | TOKEN=abc123 | API_KEY="something"
+# Excludes obvious placeholders (see allowlist below)
+regex = '''(?i)(export\s+)?(api[_\-]?key|secret|token|password|passwd|credential)\s*=\s*['"]?[a-zA-Z0-9/+]{12,}['"]?'''
+tags = ["env", "credential"]
+
+[[rules]]
+id = "connection-string-with-password"
+description = "Database or broker connection string containing credentials"
+# Catches: mongodb://user:pass@host | postgresql://user:secret@host
+regex = '''[a-zA-Z][a-zA-Z0-9+\-.]*://[^:@\s]+:[^@\s]{6,}@[^\s'"]+'''
+tags = ["connection-string", "database"]
+
+# ── Allowlist: safe patterns that would otherwise trigger false positives ──
+
+[allowlist]
+description = "Global allowlist — safe patterns to ignore"
+
+# Placeholder values commonly used in examples and templates
+regexes = [
+  # Standard placeholder patterns
+  '''(?i)(your[_\-]?(api[_\-]?)?key|your[_\-]?token|your[_\-]?secret)''',
+  '''(?i)<(api[_\-]?key|token|secret|password|your[_\-\w]+)>''',
+  '''\$\{[A-Z_]+\}''',          # ${MY_SECRET} — env var reference, not a value
+  '''\$\([A-Z_]+\)''',          # $(MY_SECRET) — shell substitution
+  '''(?i)(example|placeholder|changeme|replace[_\-]?me|todo|fixme|xxx+)''',
+  # Test/mock values that are obviously not real
+  '''(?i)test[_\-]?(secret|token|key|password)[_\-]?(value)?''',
+]
+
+# Files that should never be scanned
+paths = [
+  '''.gitleaks.toml''',          # This file — contains regex patterns resembling secrets
+  '''\.pre-commit-config\.yaml''',
+  '''go\.sum''',
+  '''package-lock\.json''',
+  '''yarn\.lock''',
+  '''Pipfile\.lock''',
+  '''\.github/workflows/''',     # GitHub Actions env var references (${{ secrets.X }}) are safe
+  '''CHANGELOG''',
+  '''LICENSE''',
+]

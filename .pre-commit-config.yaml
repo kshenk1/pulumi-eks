@@ -1,0 +1,33 @@
+# CloudBees PS/SE — Secrets Prevention Hooks
+# Docs: https://pre-commit.com | https://github.com/gitleaks/gitleaks
+#
+# SETUP (one-time per developer, per clone):
+#   pip install pre-commit
+#   pre-commit install
+#
+# After that, these checks run automatically on every `git commit`.
+# To run manually against all files:
+#   pre-commit run --all-files
+
+repos:
+  # ── Primary: gitleaks secret scanning ─────────────────────────────────────
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2  # Pin to a specific version — update intentionally
+    hooks:
+      - id: gitleaks
+        name: Detect hardcoded secrets (gitleaks)
+        description: Scans staged files for API keys, tokens, passwords, and other secrets
+        # Custom rules extend gitleaks' built-in ruleset (100+ patterns)
+        # See .gitleaks.toml in this repo for CloudBees-specific additions
+        args: ["--config=.gitleaks.toml"]
+
+  # ── Secondary: catch common accidental exposures ───────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # Prevents large files (e.g. keystores, cert bundles) from being committed
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      # Prevents private key file types from being committed
+      - id: detect-private-key
+        name: Detect private key files
