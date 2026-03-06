@@ -46,6 +46,18 @@ tags = ["connection-string", "database"]
 
 [allowlist]
 description = "Global allowlist — safe patterns to ignore"
+paths = [
+  '''.gitleaks.toml''',          # This file — contains regex patterns resembling secrets
+  '''\.pre-commit-config\.yaml''',
+  '''go\.sum''',
+  '''package-lock\.json''',
+  '''yarn\.lock''',
+  '''Pipfile\.lock''',
+  '''\.github/workflows/''',     # GitHub Actions env var references (${{ secrets.X }}) are safe
+  '''CHANGELOG''',
+  '''LICENSE''',
+  '''tests/mocks.py''',
+]
 
 # Placeholder values commonly used in examples and templates
 regexes = [
@@ -60,15 +72,3 @@ regexes = [
 ]
 
 # Files that should never be scanned
-paths = [
-  '''.gitleaks.toml''',          # This file — contains regex patterns resembling secrets
-  '''\.pre-commit-config\.yaml''',
-  '''go\.sum''',
-  '''package-lock\.json''',
-  '''yarn\.lock''',
-  '''Pipfile\.lock''',
-  '''\.github/workflows/''',     # GitHub Actions env var references (${{ secrets.X }}) are safe
-  '''CHANGELOG''',
-  '''LICENSE''',
-  '''tests/mocks\.py''',
-]

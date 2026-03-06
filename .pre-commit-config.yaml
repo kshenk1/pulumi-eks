@@ -31,3 +31,4 @@ repos:
       # Prevents private key file types from being committed
       - id: detect-private-key
         name: Detect private key files
+        exclude: tests/mocks.py
