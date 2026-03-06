@@ -70,4 +70,5 @@ paths = [
   '''\.github/workflows/''',     # GitHub Actions env var references (${{ secrets.X }}) are safe
   '''CHANGELOG''',
   '''LICENSE''',
+  '''tests/mocks\.py''',
 ]
