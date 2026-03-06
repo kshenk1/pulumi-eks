@@ -1,4 +1,7 @@
 # Pulumi project pulumi-eks
+
+![Build & Test](https://github.com/kshenk1/pulumi-eks/actions/workflows/python-app.yaml/badge.svg)
+
 In the beginning, this started out with a `pulumi convert ...` my current terraform to pulumi. It did a pretty good job - especially in regards to converting the resources from terraform components to pulumi components. That, and it gave me a decent scaffolding to start working with. What it was _not_ able to convert well automagically were things like flatten, merge etc. Since then, I've added new resources and filled in a lot of gaps I had with my previous setup with terraform.
 
 This was geared towards installing Cloudbees CI, however; most of this is quite foundational and would likely need to take place for any application being served from EKS.
