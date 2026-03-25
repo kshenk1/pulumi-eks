@@ -15,16 +15,23 @@ export certificate_arn="$(pulumi stack output certificate_arn)"
 ## We need to construct a string of cidr addresses to let the ALB know who can visit
 inbound_cidrs=""
 
-myip="$(pulumi config get myip)"
-[[ -n "$myip" ]] && {
-    inbound_cidrs="${myip}"
+function add_inbound_cidr() {
+    local cidr="$1"; shift
+    [[ -z "$cidr" ]] && return
+    [[ -n "$inbound_cidrs" ]] && inbound_cidrs="${inbound_cidrs},"
+    inbound_cidrs="${inbound_cidrs}$cidr"
 }
+
+myip="$(pulumi config get myip)"
+add_inbound_cidr "$myip"
+
+nat_public_ip="$(pulumi stack output nat_public_ip)"
+add_inbound_cidr "$nat_public_ip"
 
 additional_alb_cidrs="$(pulumi config get additional_alb_access_cidrs)"
 [[ -n "$additional_alb_cidrs" ]] && {
     _alb_cidrs="$(echo "$additional_alb_cidrs" | jq -r 'join(",")')"
-    [[ -n "$inbound_cidrs" ]] && inbound_cidrs="${inbound_cidrs},"
-    inbound_cidrs="${inbound_cidrs}$_alb_cidrs"
+    add_inbound_cidr "$_alb_cidrs"
 }
 
 export inbound_cidrs
