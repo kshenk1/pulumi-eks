@@ -48,6 +48,8 @@ eks_max_nodes_per_nodegroup = config.get_int("eks_max_nodes_per_nodegroup") or 1
 
 eks_instance_min_vcpu = config.get_int("eks_instance_min_vcpu") or 1
 
+eks_nodegroup_ami_type = config.get("eks_nodegroup_ami_type", "AL2023_x86_64_STANDARD")
+
 common_tags = config.get_object("common_tags")
 if common_tags is None:
     common_tags = {
@@ -174,6 +176,7 @@ if create_eks_cluster:
         'nodegroup_name': "ng", 
         'private_subnet_ids': vpc.private_subnet_ids, 
         'instance_types': eks_node_group_instance_types, 
+        'eks_nodegroup_ami_type': eks_nodegroup_ami_type,
         'sizeMin': 0,
         'sizeMax': eks_max_nodes_per_nodegroup, 
         'sizeDesired': eks_nodes_per_nodegroup, 

@@ -19,6 +19,7 @@ class EksNodesEc2Args(TypedDict):
     sizeMax: Input[float]
     sizeDesired: Input[float]
     instance_types: Input[Any]
+    eks_nodegroup_ami_type: Input[str]
     memory_min: Input[Any]
     vcpu_min: Input[Any]
     tags: Input[Any]
@@ -63,7 +64,7 @@ class EksNodesEc2(pulumi.ComponentResource):
                 node_role_arn=args["aws_iam_role_node_arn"],
                 subnet_ids=[args["private_subnet_ids"][i]],
                 instance_types=args["instance_types"],
-                ami_type="AL2023_x86_64_STANDARD",
+                ami_type=args["eks_nodegroup_ami_type"],
                 launch_template={
                     "id": node_template.id,
                     "version": node_template.latest_version,
